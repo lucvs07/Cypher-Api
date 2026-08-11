@@ -15,9 +15,12 @@ spring:
     show-sql: false
     database-platform: org.hibernate.dialect.H2Dialect
 
+  # Jackson 3 (Spring Boot 4): WRITE_DATES_AS_TIMESTAMPS saiu de SerializationFeature
+  # e vive em DateTimeFeature, exposto sob spring.jackson.datatype.datetime.
   jackson:
-    serialization:
-      write-dates-as-timestamps: false
+    datatype:
+      datetime:
+        write-dates-as-timestamps: false
 
 cypher:
   catalog:

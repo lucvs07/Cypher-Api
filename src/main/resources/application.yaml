@@ -18,3 +18,50 @@ spring:
       ddl-auto: update
     show-sql: true
     database-platform: org.hibernate.dialect.H2Dialect
+
+  # Jackson 3 (Spring Boot 4): WRITE_DATES_AS_TIMESTAMPS saiu de SerializationFeature
+  # e vive em DateTimeFeature, exposto sob spring.jackson.datatype.datetime.
+  jackson:
+    datatype:
+      datetime:
+        write-dates-as-timestamps: false
+
+cypher:
+  cors:
+    allowed-origins:
+      - http://localhost:4200
+  catalog:
+    stations:
+      - id: EST-01
+        nome: Esteira de montagem
+        setor: montagem
+      - id: EST-02
+        nome: Prensa 3
+        setor: estamparia
+      - id: EST-03
+        nome: Expedicao
+        setor: logistica
+      - id: EST-04
+        nome: Solda robotizada
+        setor: montagem
+    cameras:
+      - id: CAM-01
+        nome: Esteira - frontal
+        estacaoId: EST-01
+        streamUrl: http://127.0.0.1:8090/stream
+        fonte: data/validation/cenario.mp4
+      - id: CAM-02
+        nome: Prensa - lateral
+        estacaoId: EST-02
+        streamUrl: http://127.0.0.1:8091/stream
+        fonte: data/validation/cenario2.mp4
+      - id: CAM-03
+        nome: Expedicao - alto
+        estacaoId: EST-03
+        streamUrl: http://127.0.0.1:8092/stream
+        fonte: data/validation/cenario3.mp4
+      - id: CAM-04
+        nome: Solda - frontal
+        estacaoId: EST-04
+        streamUrl: http://127.0.0.1:8093/stream
+        fonte: data/validation/cenario4.mp4
