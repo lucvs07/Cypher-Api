@@ -6,7 +6,10 @@ import com.dev4.cypher.dto.IncidentResponse;
 import com.dev4.cypher.dto.StatusRequest;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.service.IncidentService;
+import com.dev4.cypher.sse.IncidentSseService;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -31,9 +34,17 @@ import java.time.OffsetDateTime;
 public class IncidentController {
 
     private final IncidentService service;
+    private final IncidentSseService sse;
 
-    public IncidentController(IncidentService service) {
+    public IncidentController(IncidentService service, IncidentSseService sse) {
         this.service = service;
+        this.sse = sse;
+    }
+
+    /** Fluxo de incidentes em tempo real consumido pelo dashboard. */
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter stream() {
+        return sse.subscribe();
     }
 
     /**
