@@ -26,3 +26,6 @@ cypher:
   catalog:
     stations: []
     cameras: []
+  cors:
+    allowed-origins:
+      - http://localhost:4200
