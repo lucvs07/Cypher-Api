@@ -11,9 +11,12 @@ import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.repository.AlertaRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 /** Ciclo de vida do incidente: abertura idempotente, fechamento e status. */
@@ -82,6 +85,16 @@ public class IncidentService {
             publisher.publishEvent(new IncidentChangedEvent(response));
             return response;
         });
+    }
+
+    @Transactional(readOnly = true)
+    public Page<IncidentResponse> search(OffsetDateTime since,
+                                         String cameraId,
+                                         Integer severityMin,
+                                         AlertaStatus status,
+                                         Pageable pageable) {
+        return repository.buscar(since, cameraId, severityMin, status, pageable)
+                .map(mapper::toResponse);
     }
 
     @Transactional
