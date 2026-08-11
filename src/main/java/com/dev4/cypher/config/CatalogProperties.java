@@ -23,6 +23,7 @@ public class CatalogProperties {
 
     private List<StationConfig> stations = new ArrayList<>();
     private List<CameraConfig> cameras = new ArrayList<>();
+    private List<WebhookConfig> webhooks = new ArrayList<>();
 
     @Getter
     @Setter
@@ -41,5 +42,14 @@ public class CatalogProperties {
         private String estacaoId;
         private String streamUrl;
         private String fonte;
+    }
+
+    @Getter
+    @Setter
+    public static class WebhookConfig {
+        private String url;
+        private String secret;
+        private Integer minSeverity = 3;
+        private boolean ativo = true;
     }
 }
