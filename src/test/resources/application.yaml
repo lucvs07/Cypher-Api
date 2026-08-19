@@ -1,0 +1,31 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:cyphertest;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  h2:
+    console:
+      enabled: false
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    database-platform: org.hibernate.dialect.H2Dialect
+
+  # Jackson 3 (Spring Boot 4): WRITE_DATES_AS_TIMESTAMPS saiu de SerializationFeature
+  # e vive em DateTimeFeature, exposto sob spring.jackson.datatype.datetime.
+  jackson:
+    datatype:
+      datetime:
+        write-dates-as-timestamps: false
+
+cypher:
+  catalog:
+    stations: []
+    cameras: []
+  cors:
+    allowed-origins:
+      - http://localhost:4200
