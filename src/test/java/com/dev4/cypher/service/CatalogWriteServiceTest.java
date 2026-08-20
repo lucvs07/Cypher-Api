@@ -1,0 +1,162 @@
+package com.dev4.cypher.service;
+
+import com.dev4.cypher.catalog.CatalogValidationException;
+import com.dev4.cypher.dto.StationRequest;
+import com.dev4.cypher.dto.StationResponse;
+import com.dev4.cypher.model.Camera;
+import com.dev4.cypher.repository.CameraRepository;
+import com.dev4.cypher.repository.EstacaoRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.http.HttpStatus;
+
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+@DataJpaTest
+class CatalogWriteServiceTest {
+
+    @Autowired
+    private EstacaoRepository estacoes;
+
+    @Autowired
+    private CameraRepository cameras;
+
+    private CatalogService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new CatalogService(estacoes, cameras);
+    }
+
+    private StationRequest esteira() {
+        return new StationRequest("EST-01", "Esteira de montagem", "montagem", null);
+    }
+
+    @Test
+    void cadastraEstacaoAtivaPorDefault() {
+        StationResponse criada = service.createStation(esteira());
+
+        assertThat(criada.id()).isEqualTo("EST-01");
+        assertThat(criada.nome()).isEqualTo("Esteira de montagem");
+        assertThat(criada.setor()).isEqualTo("montagem");
+        assertThat(criada.ativa()).isTrue();
+        assertThat(criada.cameras()).isEmpty();
+    }
+
+    @Test
+    void recusaCodigoDuplicado() {
+        service.createStation(esteira());
+
+        assertThatThrownBy(() -> service.createStation(esteira()))
+                .isInstanceOf(CatalogValidationException.class)
+                .satisfies(e -> assertThat(((CatalogValidationException) e).getStatus())
+                        .isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
+    void editaNomeESetor() {
+        service.createStation(esteira());
+
+        Optional<StationResponse> editada = service.updateStation("EST-01",
+                new StationRequest("EST-01", "Esteira 1", "montagem final", null));
+
+        assertThat(editada).isPresent();
+        assertThat(editada.get().nome()).isEqualTo("Esteira 1");
+        assertThat(editada.get().setor()).isEqualTo("montagem final");
+    }
+
+    @Test
+    void recusaTentativaDeRenomearOCodigo() {
+        service.createStation(esteira());
+
+        assertThatThrownBy(() -> service.updateStation("EST-01",
+                new StationRequest("EST-99", "Esteira", "montagem", null)))
+                .isInstanceOf(CatalogValidationException.class)
+                .satisfies(e -> assertThat(((CatalogValidationException) e).getStatus())
+                        .isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
+    void editarEstacaoInexistenteDevolveVazio() {
+        assertThat(service.updateStation("EST-99",
+                new StationRequest("EST-99", "X", null, null))).isEmpty();
+    }
+
+    @Test
+    void ativaNuloNaoMexeNoEstado() {
+        service.createStation(esteira());
+        service.deactivateStation("EST-01");
+
+        service.updateStation("EST-01",
+                new StationRequest("EST-01", "Esteira", "montagem", null));
+
+        assertThat(estacoes.findById("EST-01").orElseThrow().isAtiva()).isFalse();
+    }
+
+    @Test
+    void reativarEhUmPutComAtivaVerdadeira() {
+        service.createStation(esteira());
+        service.deactivateStation("EST-01");
+
+        service.updateStation("EST-01",
+                new StationRequest("EST-01", "Esteira", "montagem", true));
+
+        assertThat(estacoes.findById("EST-01").orElseThrow().isAtiva()).isTrue();
+    }
+
+    @Test
+    void desativarNaoApaga() {
+        service.createStation(esteira());
+
+        assertThat(service.deactivateStation("EST-01")).isTrue();
+
+        assertThat(estacoes.findById("EST-01")).isPresent();
+        assertThat(estacoes.findById("EST-01").orElseThrow().isAtiva()).isFalse();
+    }
+
+    @Test
+    void desativarInexistenteDevolveFalso() {
+        assertThat(service.deactivateStation("EST-99")).isFalse();
+    }
+
+    @Test
+    void listaPadraoOmiteEstacaoDesativada() {
+        service.createStation(esteira());
+        service.createStation(new StationRequest("EST-02", "Prensa", "estamparia", null));
+        service.deactivateStation("EST-02");
+
+        assertThat(service.stations()).extracting(StationResponse::id)
+                .containsExactly("EST-01");
+        assertThat(service.stations(true)).extracting(StationResponse::id)
+                .containsExactlyInAnyOrder("EST-01", "EST-02");
+    }
+
+    @Test
+    void estacaoAtivaNaoMostraCameraDesativada() {
+        service.createStation(esteira());
+        cameras.save(new Camera("CAM-01", "Frontal", "EST-01",
+                "http://127.0.0.1:8090/stream", "rtsp://a", true));
+        cameras.saveAndFlush(new Camera("CAM-02", "Antiga", "EST-01",
+                "http://127.0.0.1:8091/stream", "rtsp://b", false));
+
+        StationResponse estacao = service.stations().get(0);
+
+        assertThat(estacao.cameras()).hasSize(1);
+        assertThat(estacao.cameras().get(0).id()).isEqualTo("CAM-01");
+    }
+
+    @Test
+    void listaDeCamerasOmiteDesativadas() {
+        cameras.save(new Camera("CAM-01", "Frontal", "EST-01",
+                "http://127.0.0.1:8090/stream", "rtsp://a", true));
+        cameras.saveAndFlush(new Camera("CAM-02", "Antiga", "EST-01",
+                "http://127.0.0.1:8091/stream", "rtsp://b", false));
+
+        assertThat(service.cameras()).hasSize(1);
+    }
+}
