@@ -39,7 +39,7 @@ public class CatalogSeeder implements ApplicationRunner {
 
         properties.getCameras().forEach(cfg ->
                 cameras.save(new Camera(cfg.getId(), cfg.getNome(), cfg.getEstacaoId(),
-                        cfg.getStreamUrl(), cfg.getFonte())));
+                        cfg.getStreamUrl(), cfg.getFonte(), cfg.isAtiva())));
 
         properties.getWebhooks().forEach(cfg -> {
             boolean jaExiste = webhooks.findAll().stream()

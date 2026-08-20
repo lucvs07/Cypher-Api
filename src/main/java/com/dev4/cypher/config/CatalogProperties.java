@@ -42,6 +42,7 @@ public class CatalogProperties {
         private String estacaoId;
         private String streamUrl;
         private String fonte;
+        private boolean ativa = true;
     }
 
     @Getter

@@ -41,4 +41,12 @@ public class Camera {
 
     @Column(length = 500)
     private String fonte;
+
+    /**
+     * Câmera em operação. Desativar tira do heatmap e do seletor de feed sem
+     * apagar o histórico: não há chave estrangeira entre incidente e câmera,
+     * então apagar de verdade deixaria incidentes órfãos.
+     */
+    @Column(nullable = false)
+    private boolean ativa;
 }
