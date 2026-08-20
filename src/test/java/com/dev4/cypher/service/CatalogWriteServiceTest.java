@@ -1,6 +1,8 @@
 package com.dev4.cypher.service;
 
 import com.dev4.cypher.catalog.CatalogValidationException;
+import com.dev4.cypher.dto.CameraAdminResponse;
+import com.dev4.cypher.dto.CameraRequest;
 import com.dev4.cypher.dto.StationRequest;
 import com.dev4.cypher.dto.StationResponse;
 import com.dev4.cypher.model.Camera;
@@ -158,5 +160,123 @@ class CatalogWriteServiceTest {
                 "http://127.0.0.1:8091/stream", "rtsp://b", false));
 
         assertThat(service.cameras()).hasSize(1);
+    }
+
+    private CameraRequest frontal() {
+        return new CameraRequest("CAM-01", "Frontal", "EST-01",
+                "http://127.0.0.1:8090/stream",
+                "rtsp://${CAM01_USER}:${CAM01_PASS}@10.0.0.7/stream", null);
+    }
+
+    @Test
+    void cadastraCameraNaEstacaoExistente() {
+        service.createStation(esteira());
+
+        CameraAdminResponse criada = service.createCamera(frontal());
+
+        assertThat(criada.id()).isEqualTo("CAM-01");
+        assertThat(criada.estacaoId()).isEqualTo("EST-01");
+        assertThat(criada.ativa()).isTrue();
+        assertThat(criada.fonte()).contains("${CAM01_USER}");
+    }
+
+    @Test
+    void recusaCameraDeEstacaoInexistente() {
+        assertThatThrownBy(() -> service.createCamera(frontal()))
+                .isInstanceOf(CatalogValidationException.class)
+                .satisfies(e -> assertThat(((CatalogValidationException) e).getStatus())
+                        .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
+    }
+
+    @Test
+    void recusaCodigoDeCameraDuplicado() {
+        service.createStation(esteira());
+        service.createCamera(frontal());
+
+        assertThatThrownBy(() -> service.createCamera(frontal()))
+                .isInstanceOf(CatalogValidationException.class)
+                .satisfies(e -> assertThat(((CatalogValidationException) e).getStatus())
+                        .isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
+    void recusaStreamUrlDuplicada() {
+        service.createStation(esteira());
+        service.createCamera(frontal());
+
+        assertThatThrownBy(() -> service.createCamera(new CameraRequest(
+                "CAM-02", "Lateral", "EST-01",
+                "http://127.0.0.1:8090/stream", "rtsp://outra", null)))
+                .isInstanceOf(CatalogValidationException.class)
+                .satisfies(e -> assertThat(((CatalogValidationException) e).getStatus())
+                        .isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
+    void recusaStreamUrlSemPortaExplicita() {
+        service.createStation(esteira());
+
+        assertThatThrownBy(() -> service.createCamera(new CameraRequest(
+                "CAM-02", "Lateral", "EST-01",
+                "http://127.0.0.1/stream", "rtsp://x", null)))
+                .isInstanceOf(CatalogValidationException.class)
+                .satisfies(e -> assertThat(((CatalogValidationException) e).getStatus())
+                        .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
+    }
+
+    @Test
+    void recusaRenomearCodigoDeCamera() {
+        service.createStation(esteira());
+        service.createCamera(frontal());
+
+        assertThatThrownBy(() -> service.updateCamera("CAM-01", new CameraRequest(
+                "CAM-99", "Frontal", "EST-01",
+                "http://127.0.0.1:8090/stream", "rtsp://x", null)))
+                .isInstanceOf(CatalogValidationException.class);
+    }
+
+    @Test
+    void editaCameraMantendoAMesmaUrl() {
+        service.createStation(esteira());
+        service.createCamera(frontal());
+
+        Optional<CameraAdminResponse> editada = service.updateCamera("CAM-01",
+                new CameraRequest("CAM-01", "Frontal HD", "EST-01",
+                        "http://127.0.0.1:8090/stream", "rtsp://nova", null));
+
+        assertThat(editada).isPresent();
+        assertThat(editada.get().nome()).isEqualTo("Frontal HD");
+        assertThat(editada.get().fonte()).isEqualTo("rtsp://nova");
+    }
+
+    @Test
+    void desativarCameraNaoApagaEContinuaVisivelPorId() {
+        service.createStation(esteira());
+        service.createCamera(frontal());
+
+        assertThat(service.deactivateCamera("CAM-01")).isTrue();
+
+        // A câmera precisa continuar visível para poder ser reativada.
+        assertThat(service.camera("CAM-01")).isPresent();
+        assertThat(service.camera("CAM-01").orElseThrow().ativa()).isFalse();
+        assertThat(service.cameras()).isEmpty();
+    }
+
+    @Test
+    void reativarCameraEhUmPutComAtivaVerdadeira() {
+        service.createStation(esteira());
+        service.createCamera(frontal());
+        service.deactivateCamera("CAM-01");
+
+        service.updateCamera("CAM-01", new CameraRequest("CAM-01", "Frontal", "EST-01",
+                "http://127.0.0.1:8090/stream", "rtsp://x", true));
+
+        assertThat(service.cameras()).extracting(c -> c.id()).containsExactly("CAM-01");
+    }
+
+    @Test
+    void cameraInexistenteDevolveVazio() {
+        assertThat(service.camera("CAM-99")).isEmpty();
+        assertThat(service.deactivateCamera("CAM-99")).isFalse();
     }
 }
