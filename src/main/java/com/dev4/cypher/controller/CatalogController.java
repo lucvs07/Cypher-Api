@@ -1,6 +1,7 @@
 package com.dev4.cypher.controller;
 
 import com.dev4.cypher.dto.CameraAdminResponse;
+import com.dev4.cypher.dto.CameraConfigResponse;
 import com.dev4.cypher.dto.CameraRequest;
 import com.dev4.cypher.dto.CameraResponse;
 import com.dev4.cypher.dto.StationRequest;
@@ -93,5 +94,13 @@ public class CatalogController {
         return service.deactivateCamera(id)
                 ? ResponseEntity.noContent().build()
                 : ResponseEntity.notFound().build();
+    }
+
+    /** Superfície de máquina: consumida pelo pipeline no boot. */
+    @GetMapping("/cameras/{id}/config")
+    public ResponseEntity<CameraConfigResponse> cameraConfig(@PathVariable String id) {
+        return service.cameraConfig(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

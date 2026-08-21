@@ -3,6 +3,7 @@ package com.dev4.cypher.service;
 import com.dev4.cypher.catalog.CatalogCodes;
 import com.dev4.cypher.catalog.CatalogValidationException;
 import com.dev4.cypher.dto.CameraAdminResponse;
+import com.dev4.cypher.dto.CameraConfigResponse;
 import com.dev4.cypher.dto.CameraRequest;
 import com.dev4.cypher.dto.CameraResponse;
 import com.dev4.cypher.dto.StationRequest;
@@ -147,6 +148,27 @@ public class CatalogService {
             cameras.saveAndFlush(camera);
             return true;
         }).orElse(false);
+    }
+
+    /**
+     * Config do pipeline. Câmera desativada é conflito, não sucesso: o
+     * pipeline não deve subir apontando para câmera tirada de operação.
+     */
+    @Transactional(readOnly = true)
+    public Optional<CameraConfigResponse> cameraConfig(String id) {
+        return cameras.findById(id).map(camera -> {
+            if (!camera.isAtiva()) {
+                throw new CatalogValidationException(HttpStatus.CONFLICT,
+                        "Camera desativada: " + camera.getId());
+            }
+            return new CameraConfigResponse(
+                    camera.getId(),
+                    camera.getNome(),
+                    camera.getEstacaoId(),
+                    camera.getFonte(),
+                    CatalogCodes.portaDe(camera.getStreamUrl()),
+                    camera.isAtiva());
+        });
     }
 
     // ------------------------------------------------------------------
