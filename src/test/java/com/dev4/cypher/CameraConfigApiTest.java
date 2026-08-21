@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -18,6 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
+@Transactional
 @AutoConfigureMockMvc
 class CameraConfigApiTest {
 
@@ -85,5 +87,15 @@ class CameraConfigApiTest {
     void cameraInexistenteDevolve404() throws Exception {
         mvc.perform(get("/api/v1/cameras/CAM-99/config"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void estacaoDesativadaDevolve409MesmoComCameraAtiva() throws Exception {
+        // A camera continua ativa; e a estacao que sai de operacao.
+        mvc.perform(delete("/api/v1/stations/EST-55")).andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/v1/cameras/CAM-55/config"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.erro").value(Matchers.containsString("EST-55")));
     }
 }

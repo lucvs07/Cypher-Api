@@ -36,8 +36,9 @@ public class CatalogController {
 
     /** Lista consumida pelo dashboard: somente ativas, sem fonte. */
     @GetMapping("/cameras")
-    public List<CameraResponse> cameras() {
-        return service.cameras();
+    public List<CameraResponse> cameras(
+            @RequestParam(defaultValue = "false") boolean incluirInativas) {
+        return service.cameras(incluirInativas);
     }
 
     @GetMapping("/stations")

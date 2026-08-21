@@ -43,7 +43,13 @@ public class CatalogService {
 
     @Transactional(readOnly = true)
     public List<CameraResponse> cameras() {
-        return cameras.findByAtivaTrue().stream().map(this::toResponse).toList();
+        return cameras(false);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CameraResponse> cameras(boolean incluirInativas) {
+        List<Camera> base = incluirInativas ? cameras.findAll() : cameras.findByAtivaTrue();
+        return base.stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -152,7 +158,9 @@ public class CatalogService {
 
     /**
      * Config do pipeline. Câmera desativada é conflito, não sucesso: o
-     * pipeline não deve subir apontando para câmera tirada de operação.
+     * pipeline não deve subir apontando para câmera tirada de operação. O
+     * mesmo vale se a estação da câmera foi desativada: a câmera continua
+     * marcada como ativa, mas o posto que ela cobre saiu de operação.
      */
     @Transactional(readOnly = true)
     public Optional<CameraConfigResponse> cameraConfig(String id) {
@@ -161,6 +169,12 @@ public class CatalogService {
                 throw new CatalogValidationException(HttpStatus.CONFLICT,
                         "Camera desativada: " + camera.getId());
             }
+            estacoes.findById(camera.getEstacaoId())
+                    .filter(estacao -> !estacao.isAtiva())
+                    .ifPresent(estacao -> {
+                        throw new CatalogValidationException(HttpStatus.CONFLICT,
+                                "Estacao da camera esta desativada: " + estacao.getId());
+                    });
             return new CameraConfigResponse(
                     camera.getId(),
                     camera.getNome(),

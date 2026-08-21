@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 /**
  * Câmera vinculada a uma estação.
@@ -47,6 +48,7 @@ public class Camera {
      * apagar o histórico: não há chave estrangeira entre incidente e câmera,
      * então apagar de verdade deixaria incidentes órfãos.
      */
+    @ColumnDefault("true")
     @Column(nullable = false)
     private boolean ativa;
 }

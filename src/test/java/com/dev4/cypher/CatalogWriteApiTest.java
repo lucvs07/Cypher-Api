@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -19,6 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
+@Transactional
 @AutoConfigureMockMvc
 class CatalogWriteApiTest {
 
@@ -179,5 +181,25 @@ class CatalogWriteApiTest {
     void cameraInexistenteDevolve404() throws Exception {
         mvc.perform(get("/api/v1/cameras/CAM-99")).andExpect(status().isNotFound());
         mvc.perform(delete("/api/v1/cameras/CAM-99")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void listaDeCamerasIncluiInativasSoComOptIn() throws Exception {
+        mvc.perform(post("/api/v1/stations")
+                .contentType(MediaType.APPLICATION_JSON).content(ESTACAO));
+        mvc.perform(post("/api/v1/cameras")
+                .contentType(MediaType.APPLICATION_JSON).content(CAMERA));
+
+        mvc.perform(delete("/api/v1/cameras/CAM-77")).andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/v1/cameras"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id=='CAM-77')]").isEmpty());
+        mvc.perform(get("/api/v1/cameras").param("incluirInativas", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id=='CAM-77')]").isEmpty());
+        mvc.perform(get("/api/v1/cameras").param("incluirInativas", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id=='CAM-77')]").isNotEmpty());
     }
 }
