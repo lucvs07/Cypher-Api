@@ -5,9 +5,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface CameraRepository extends JpaRepository<Camera, String> {
 
     List<Camera> findByEstacaoId(String estacaoId);
+
+    List<Camera> findByAtivaTrue();
+
+    List<Camera> findByEstacaoIdAndAtivaTrue(String estacaoId);
+
+    Optional<Camera> findByStreamUrl(String streamUrl);
 }

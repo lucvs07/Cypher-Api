@@ -6,6 +6,8 @@ import com.dev4.cypher.model.WebhookSubscription;
 import com.dev4.cypher.repository.CameraRepository;
 import com.dev4.cypher.repository.EstacaoRepository;
 import com.dev4.cypher.repository.WebhookSubscriptionRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -16,6 +18,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class CatalogSeeder implements ApplicationRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(CatalogSeeder.class);
 
     private final CatalogProperties properties;
     private final EstacaoRepository estacoes;
@@ -32,15 +36,39 @@ public class CatalogSeeder implements ApplicationRunner {
         this.webhooks = webhooks;
     }
 
+    /**
+     * Bootstrap, não sincronização: popula somente quando a tabela está vazia.
+     *
+     * <p>Antes de E2 isto era upsert a cada boot, o que significa que — com o
+     * cadastro pela interface existindo — editar uma estação e reiniciar a
+     * aplicação desfaria a edição em silêncio.
+     */
     @Override
     public void run(ApplicationArguments args) {
-        properties.getStations().forEach(cfg ->
-                estacoes.save(new Estacao(cfg.getId(), cfg.getNome(), cfg.getSetor(), cfg.isAtiva())));
+        if (estacoes.count() == 0) {
+            properties.getStations().forEach(cfg ->
+                    estacoes.save(new Estacao(cfg.getId(), cfg.getNome(), cfg.getSetor(),
+                            cfg.isAtiva())));
+            log.info("Catalogo: {} estacao(oes) semeada(s) da configuracao",
+                    properties.getStations().size());
+        } else {
+            log.info("Catalogo: {} estacao(oes) ja no banco, configuracao ignorada",
+                    estacoes.count());
+        }
 
-        properties.getCameras().forEach(cfg ->
-                cameras.save(new Camera(cfg.getId(), cfg.getNome(), cfg.getEstacaoId(),
-                        cfg.getStreamUrl(), cfg.getFonte())));
+        if (cameras.count() == 0) {
+            properties.getCameras().forEach(cfg ->
+                    cameras.save(new Camera(cfg.getId(), cfg.getNome(), cfg.getEstacaoId(),
+                            cfg.getStreamUrl(), cfg.getFonte(), cfg.isAtiva())));
+            log.info("Catalogo: {} camera(s) semeada(s) da configuracao",
+                    properties.getCameras().size());
+        } else {
+            log.info("Catalogo: {} camera(s) ja no banco, configuracao ignorada",
+                    cameras.count());
+        }
 
+        // Assinaturas de webhook seguem por URL: são infraestrutura de
+        // integração, não cadastro editável pela interface.
         properties.getWebhooks().forEach(cfg -> {
             boolean jaExiste = webhooks.findAll().stream()
                     .anyMatch(w -> w.getUrl().equals(cfg.getUrl()));
