@@ -119,4 +119,22 @@ class IncidentQueryApiTest {
                         .content("{\"status\": \"RESOLVIDO\"}"))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void buscaIncidentePorId() throws Exception {
+        String lista = mvc.perform(get("/api/v1/incidents").param("camera", "CAM-01"))
+                .andReturn().getResponse().getContentAsString();
+        Integer id = com.jayway.jsonpath.JsonPath.read(lista, "$.content[0].id");
+
+        mvc.perform(get("/api/v1/incidents/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.cameraId").value("CAM-01"));
+    }
+
+    @Test
+    void buscaPorIdInexistenteDevolve404() throws Exception {
+        mvc.perform(get("/api/v1/incidents/{id}", 999999))
+                .andExpect(status().isNotFound());
+    }
 }

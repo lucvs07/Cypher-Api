@@ -88,6 +88,14 @@ public class IncidentController {
         return service.search(since, camera, severityMin, status, pageable);
     }
 
+    /** Item individual, para a tela de detalhe sobreviver a refresh/link direto. */
+    @GetMapping("/{id}")
+    public ResponseEntity<IncidentResponse> byId(@PathVariable Long id) {
+        return service.findById(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @PutMapping("/{id}/status")
     public ResponseEntity<IncidentResponse> changeStatus(@PathVariable Long id,
                                                          @Valid @RequestBody StatusRequest req) {

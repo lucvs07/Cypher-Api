@@ -97,6 +97,11 @@ public class IncidentService {
                 .map(mapper::toResponse);
     }
 
+    @Transactional(readOnly = true)
+    public Optional<IncidentResponse> findById(Long id) {
+        return repository.findById(id).map(mapper::toResponse);
+    }
+
     @Transactional
     public Optional<IncidentResponse> changeStatus(Long id, AlertaStatus status) {
         return repository.findById(id).map(alerta -> {

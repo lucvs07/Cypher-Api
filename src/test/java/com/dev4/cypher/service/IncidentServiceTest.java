@@ -124,4 +124,20 @@ class IncidentServiceTest {
         assertThat(revisado).isPresent();
         assertThat(revisado.get().status()).isEqualTo(AlertaStatus.REVISADO);
     }
+
+    @Test
+    void buscaIncidentePorId() {
+        Long id = service.ingest(queda("k1")).incident().id();
+
+        Optional<com.dev4.cypher.dto.IncidentResponse> encontrado = service.findById(id);
+
+        assertThat(encontrado).isPresent();
+        assertThat(encontrado.get().id()).isEqualTo(id);
+        assertThat(encontrado.get().incidentKey()).isEqualTo("k1");
+    }
+
+    @Test
+    void buscaPorIdInexistenteDevolveVazio() {
+        assertThat(service.findById(999999L)).isEmpty();
+    }
 }
