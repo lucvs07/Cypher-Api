@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,13 +61,22 @@ class SetupApiTest {
 
     @Test
     void setupCriaOGestorEDevolveSessaoAutenticada() throws Exception {
-        mvc.perform(post("/api/v1/setup")
+        MockHttpSession session = new MockHttpSession();
+
+        mvc.perform(post("/api/v1/setup").session(session)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\": \"admin\", \"password\": \"admin123\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.papel").value("GESTOR"))
                 .andExpect(jsonPath("$.username").value("admin"))
                 .andExpect(jsonPath("$.estacaoId").doesNotExist());
+
+        // Prova de que /setup grava sessão autenticada de verdade, não só o
+        // corpo da resposta: uma segunda requisição, mesmo MockHttpSession,
+        // enxerga a autenticação feita pelo POST /setup.
+        mvc.perform(get("/api/v1/auth/me").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.papel").value("GESTOR"));
     }
 
     @Test

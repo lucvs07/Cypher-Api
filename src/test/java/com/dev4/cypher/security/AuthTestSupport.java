@@ -46,6 +46,16 @@ public final class AuthTestSupport {
                         .content("{\"username\": \"%s\", \"password\": \"%s\"}"
                                 .formatted(GESTOR_USERNAME, GESTOR_PASSWORD)))
                 .andReturn().getResponse().getStatus();
+        if (status != 200 && status != 409) {
+            // Nem criou (200) nem já existia (409): algo além do esperado
+            // aconteceu em /setup (400 de validação, 500, etc.) — falhar aqui,
+            // alto e claro, em vez de deixar o fallthrough devolver uma sessão
+            // não autenticada que só se manifestaria como um 401 confuso em
+            // algum teste de outra classe, bem mais tarde e longe da causa real.
+            throw new IllegalStateException(
+                    "POST /api/v1/setup devolveu status inesperado " + status
+                            + " (esperado 200 ou 409) — loginGestorBootstrap não pode prosseguir");
+        }
         if (status == 409) {
             return loginGestor(mvc, GESTOR_USERNAME, GESTOR_PASSWORD);
         }

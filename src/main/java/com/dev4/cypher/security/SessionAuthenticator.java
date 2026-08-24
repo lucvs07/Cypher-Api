@@ -20,6 +20,13 @@ import org.springframework.stereotype.Component;
  * cadeia (via {@code .securityContext(...)} em `SecurityConfig`) para
  * restaurar a sessão a cada requisição — não uma segunda instância
  * equivalente de {@code HttpSessionSecurityContextRepository}.
+ *
+ * <p>Rotaciona o id da sessão ({@code request.changeSessionId()}) antes de
+ * gravar o {@code SecurityContext}, para os três chamadores
+ * (`AuthController.login`, `.loginEstacao`, `SetupController.setup`) ao
+ * mesmo tempo, sem duplicar a chamada em cada um. Isso evita fixação de
+ * sessão: sem a rotação, um id de sessão plantado por um atacante antes do
+ * login continuaria válido — e autenticado — depois dele.
  */
 @Component
 public class SessionAuthenticator {
@@ -31,6 +38,8 @@ public class SessionAuthenticator {
     }
 
     public void autenticar(Authentication auth, HttpServletRequest request, HttpServletResponse response) {
+        request.getSession();
+        request.changeSessionId();
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(auth);
         SecurityContextHolder.setContext(context);

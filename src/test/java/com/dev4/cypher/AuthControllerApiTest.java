@@ -15,6 +15,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static com.dev4.cypher.security.AuthTestSupport.GESTOR_PASSWORD;
 import static com.dev4.cypher.security.AuthTestSupport.GESTOR_USERNAME;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -74,6 +76,23 @@ class AuthControllerApiTest {
     }
 
     @Test
+    void loginRotacionaOIdDaSessaoContraFixacao() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        String idAntes = session.getId();
+
+        mvc.perform(post("/api/v1/auth/login").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"%s\", \"password\": \"%s\"}"
+                                .formatted(GESTOR_USERNAME, GESTOR_PASSWORD)))
+                .andExpect(status().isOk());
+
+        // Um id de sessão plantado antes do login não pode sobreviver como o
+        // id da sessão autenticada — senão um atacante que planta esse id na
+        // vítima antes dela logar herdaria a sessão autenticada dela.
+        assertNotEquals(idAntes, session.getId());
+    }
+
+    @Test
     void loginComSenhaErradaDevolve401() throws Exception {
         mvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -109,6 +128,21 @@ class AuthControllerApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.papel").value("OPERADOR"))
                 .andExpect(jsonPath("$.estacaoId").value("EST-70"));
+    }
+
+    @Test
+    void loginEstacaoComEstacaoInativaDevolve401() throws Exception {
+        mvc.perform(post("/api/v1/stations")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EST-71\", \"nome\": \"Prensa 8\", \"setor\": \"estamparia\"}"));
+        String token = estacoes.findById("EST-71").orElseThrow().getToken();
+        mvc.perform(delete("/api/v1/stations/EST-71"))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(post("/api/v1/auth/login-estacao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\": \"%s\"}".formatted(token)))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
