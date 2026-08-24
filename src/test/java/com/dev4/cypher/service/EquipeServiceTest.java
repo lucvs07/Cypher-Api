@@ -132,6 +132,30 @@ class EquipeServiceTest {
     }
 
     @Test
+    void estacaoIdsDaRespostaEUmaCopiaDefensivaDesconectadaDoHibernate() {
+        TeamResponse criada = service.criar(equipeA());
+
+        // toResponse() deve devolver List.copyOf(...), nao a colecao gerenciada pelo
+        // Hibernate (ex.: org.hibernate.collection.spi.PersistentBag). Se voltasse a
+        // referencia viva, a lista so "funcionaria" enquanto a sessao do Hibernate
+        // estivesse aberta (open-in-view=true); com OSIV desligado isso lancaria
+        // LazyInitializationException ao ser serializada fora da transacao.
+        assertThat(criada.estacaoIds().getClass().getName())
+                .as("estacaoIds nao deve ser uma colecao gerenciada pelo Hibernate")
+                .doesNotContain("org.hibernate");
+        assertThatThrownBy(() -> criada.estacaoIds().add("EST-02"))
+                .as("copia defensiva deve ser imutavel")
+                .isInstanceOf(UnsupportedOperationException.class);
+
+        Optional<TeamResponse> editada = service.atualizar("EQ-01", equipeA());
+        assertThat(editada).isPresent();
+        assertThat(editada.get().estacaoIds().getClass().getName()).doesNotContain("org.hibernate");
+
+        TeamResponse listada = service.listar().get(0);
+        assertThat(listada.estacaoIds().getClass().getName()).doesNotContain("org.hibernate");
+    }
+
+    @Test
     void listaTodasAsEquipes() {
         service.criar(equipeA());
         service.criar(new TeamRequest("EQ-02", "Equipe B", Turno.TARDE, List.of("EST-02"), null));

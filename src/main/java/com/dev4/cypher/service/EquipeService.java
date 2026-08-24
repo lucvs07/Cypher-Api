@@ -101,6 +101,6 @@ public class EquipeService {
     }
 
     private TeamResponse toResponse(Equipe e) {
-        return new TeamResponse(e.getId(), e.getNome(), e.getTurno(), e.getEstacaoIds(), e.isAtiva());
+        return new TeamResponse(e.getId(), e.getNome(), e.getTurno(), List.copyOf(e.getEstacaoIds()), e.isAtiva());
     }
 }
