@@ -92,8 +92,9 @@ public class IncidentService {
                                          String cameraId,
                                          Integer severityMin,
                                          AlertaStatus status,
+                                         String estacaoId,
                                          Pageable pageable) {
-        return repository.buscar(since, cameraId, severityMin, status, pageable)
+        return repository.buscar(since, cameraId, severityMin, status, estacaoId, pageable)
                 .map(mapper::toResponse);
     }
 
