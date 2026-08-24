@@ -36,4 +36,8 @@ public class Estacao {
 
     @Column(nullable = false)
     private boolean ativa;
+
+    /** Opaco, gerado no cadastro (`TokenGenerator`). Exposto só via `EstacaoAdminResponse` (Tarefa 5). */
+    @Column(nullable = false, unique = true, length = 80)
+    private String token;
 }

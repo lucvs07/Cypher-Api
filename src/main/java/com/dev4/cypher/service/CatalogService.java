@@ -12,6 +12,7 @@ import com.dev4.cypher.model.Camera;
 import com.dev4.cypher.model.Estacao;
 import com.dev4.cypher.repository.CameraRepository;
 import com.dev4.cypher.repository.EstacaoRepository;
+import com.dev4.cypher.security.TokenGenerator;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,7 +75,7 @@ public class CatalogService {
                     "Estacao ja cadastrada: " + req.id());
         }
         Estacao nova = new Estacao(req.id(), req.nome(), req.setor(),
-                req.ativa() == null || req.ativa());
+                req.ativa() == null || req.ativa(), TokenGenerator.novo("est-tok"));
         return toResponse(estacoes.saveAndFlush(nova));
     }
 
