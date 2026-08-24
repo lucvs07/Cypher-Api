@@ -4,6 +4,7 @@ import com.dev4.cypher.dto.CameraAdminResponse;
 import com.dev4.cypher.dto.CameraConfigResponse;
 import com.dev4.cypher.dto.CameraRequest;
 import com.dev4.cypher.dto.CameraResponse;
+import com.dev4.cypher.dto.EstacaoAdminResponse;
 import com.dev4.cypher.dto.StationRequest;
 import com.dev4.cypher.dto.StationResponse;
 import com.dev4.cypher.service.CatalogService;
@@ -58,13 +59,13 @@ public class CatalogController {
     }
 
     @PostMapping("/stations")
-    public ResponseEntity<StationResponse> createStation(@Valid @RequestBody StationRequest req) {
+    public ResponseEntity<EstacaoAdminResponse> createStation(@Valid @RequestBody StationRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createStation(req));
     }
 
     @PutMapping("/stations/{id}")
-    public ResponseEntity<StationResponse> updateStation(@PathVariable String id,
-                                                        @Valid @RequestBody StationRequest req) {
+    public ResponseEntity<EstacaoAdminResponse> updateStation(@PathVariable String id,
+                                                              @Valid @RequestBody StationRequest req) {
         return service.updateStation(id, req)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
@@ -75,6 +76,14 @@ public class CatalogController {
         return service.deactivateStation(id)
                 ? ResponseEntity.noContent().build()
                 : ResponseEntity.notFound().build();
+    }
+
+    /** Rotaciona o token de estação; provisionar o kiosk é copiar este valor uma vez (spec E4 §2.4). */
+    @PostMapping("/stations/{id}/token/regenerate")
+    public ResponseEntity<EstacaoAdminResponse> regenerateStationToken(@PathVariable String id) {
+        return service.regenerateToken(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping("/cameras")

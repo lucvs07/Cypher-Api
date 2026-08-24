@@ -59,7 +59,9 @@ class CatalogWriteApiTest {
                         .contentType(MediaType.APPLICATION_JSON).content(ESTACAO))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value("EST-77"))
-                .andExpect(jsonPath("$.ativa").value(true));
+                .andExpect(jsonPath("$.ativa").value(true))
+                .andExpect(jsonPath("$.token").exists())
+                .andExpect(jsonPath("$.cameras").doesNotExist());
     }
 
     @Test
@@ -201,5 +203,24 @@ class CatalogWriteApiTest {
         mvc.perform(get("/api/v1/cameras").param("incluirInativas", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id=='CAM-77')]").isNotEmpty());
+    }
+
+    @Test
+    void regeneraTokenEDevolveValorDiferenteDoAnterior() throws Exception {
+        String criada = mvc.perform(post("/api/v1/stations")
+                        .contentType(MediaType.APPLICATION_JSON).content(ESTACAO))
+                .andReturn().getResponse().getContentAsString();
+        String tokenOriginal = com.jayway.jsonpath.JsonPath.read(criada, "$.token");
+
+        mvc.perform(post("/api/v1/stations/EST-77/token/regenerate"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("EST-77"))
+                .andExpect(jsonPath("$.token").value(Matchers.not(tokenOriginal)));
+    }
+
+    @Test
+    void regenerarTokenDeEstacaoInexistenteDevolve404() throws Exception {
+        mvc.perform(post("/api/v1/stations/EST-99/token/regenerate"))
+                .andExpect(status().isNotFound());
     }
 }

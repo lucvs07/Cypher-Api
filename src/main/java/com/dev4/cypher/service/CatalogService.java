@@ -6,6 +6,7 @@ import com.dev4.cypher.dto.CameraAdminResponse;
 import com.dev4.cypher.dto.CameraConfigResponse;
 import com.dev4.cypher.dto.CameraRequest;
 import com.dev4.cypher.dto.CameraResponse;
+import com.dev4.cypher.dto.EstacaoAdminResponse;
 import com.dev4.cypher.dto.StationRequest;
 import com.dev4.cypher.dto.StationResponse;
 import com.dev4.cypher.model.Camera;
@@ -69,18 +70,18 @@ public class CatalogService {
     // ------------------------------------------------------------------
 
     @Transactional
-    public StationResponse createStation(StationRequest req) {
+    public EstacaoAdminResponse createStation(StationRequest req) {
         if (estacoes.existsById(req.id())) {
             throw new CatalogValidationException(HttpStatus.CONFLICT,
                     "Estacao ja cadastrada: " + req.id());
         }
         Estacao nova = new Estacao(req.id(), req.nome(), req.setor(),
                 req.ativa() == null || req.ativa(), TokenGenerator.novo("est-tok"));
-        return toResponse(estacoes.saveAndFlush(nova));
+        return toAdminResponse(estacoes.saveAndFlush(nova));
     }
 
     @Transactional
-    public Optional<StationResponse> updateStation(String id, StationRequest req) {
+    public Optional<EstacaoAdminResponse> updateStation(String id, StationRequest req) {
         exigirMesmoCodigo(id, req.id(), "estacao");
         return estacoes.findById(id).map(estacao -> {
             estacao.setNome(req.nome());
@@ -90,7 +91,16 @@ public class CatalogService {
             if (req.ativa() != null) {
                 estacao.setAtiva(req.ativa());
             }
-            return toResponse(estacoes.saveAndFlush(estacao));
+            return toAdminResponse(estacoes.saveAndFlush(estacao));
+        });
+    }
+
+    /** Rotaciona o token sem recriar a estação (spec E4 §2.4) — GESTOR-only. */
+    @Transactional
+    public Optional<EstacaoAdminResponse> regenerateToken(String id) {
+        return estacoes.findById(id).map(estacao -> {
+            estacao.setToken(TokenGenerator.novo("est-tok"));
+            return toAdminResponse(estacoes.saveAndFlush(estacao));
         });
     }
 
@@ -231,6 +241,10 @@ public class CatalogService {
         return new StationResponse(e.getId(), e.getNome(), e.getSetor(), e.isAtiva(),
                 cameras.findByEstacaoIdAndAtivaTrue(e.getId()).stream()
                         .map(this::toResponse).toList());
+    }
+
+    private EstacaoAdminResponse toAdminResponse(Estacao e) {
+        return new EstacaoAdminResponse(e.getId(), e.getNome(), e.getSetor(), e.isAtiva(), e.getToken());
     }
 
     private CameraResponse toResponse(Camera c) {
