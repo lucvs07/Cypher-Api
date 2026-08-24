@@ -7,10 +7,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -54,5 +56,26 @@ class SetupApiTest {
         mvc.perform(get("/api/v1/setup/status"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.configured").value(true));
+    }
+
+    @Test
+    void setupCriaOGestorEDevolveSessaoAutenticada() throws Exception {
+        mvc.perform(post("/api/v1/setup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"admin\", \"password\": \"admin123\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.papel").value("GESTOR"))
+                .andExpect(jsonPath("$.username").value("admin"))
+                .andExpect(jsonPath("$.estacaoId").doesNotExist());
+    }
+
+    @Test
+    void setupSeSegundaVezDevolve409() throws Exception {
+        usuarios.saveAndFlush(new com.dev4.cypher.model.Usuario(null, "ja-existe", "hash"));
+
+        mvc.perform(post("/api/v1/setup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"outro\", \"password\": \"x\"}"))
+                .andExpect(status().isConflict());
     }
 }
