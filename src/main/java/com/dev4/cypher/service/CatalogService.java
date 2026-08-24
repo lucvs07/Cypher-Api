@@ -135,7 +135,8 @@ public class CatalogService {
         CatalogCodes.portaDe(req.streamUrl());
 
         Camera nova = new Camera(req.id(), req.nome(), req.estacaoId(),
-                req.streamUrl(), req.fonte(), req.ativa() == null || req.ativa());
+                req.streamUrl(), req.fonte(), req.ativa() == null || req.ativa(),
+                TokenGenerator.novo("cam-key"));
         return toAdminResponse(cameras.saveAndFlush(nova));
     }
 

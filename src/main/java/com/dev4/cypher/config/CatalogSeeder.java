@@ -60,7 +60,8 @@ public class CatalogSeeder implements ApplicationRunner {
         if (cameras.count() == 0) {
             properties.getCameras().forEach(cfg ->
                     cameras.save(new Camera(cfg.getId(), cfg.getNome(), cfg.getEstacaoId(),
-                            cfg.getStreamUrl(), cfg.getFonte(), cfg.isAtiva())));
+                            cfg.getStreamUrl(), cfg.getFonte(), cfg.isAtiva(),
+                            TokenGenerator.novo("cam-key"))));
             log.info("Catalogo: {} camera(s) semeada(s) da configuracao",
                     properties.getCameras().size());
         } else {
