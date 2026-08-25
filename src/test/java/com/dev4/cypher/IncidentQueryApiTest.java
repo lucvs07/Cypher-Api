@@ -6,10 +6,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.dev4.cypher.repository.AlertaRepository;
 
+import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -25,6 +27,8 @@ class IncidentQueryApiTest {
 
     @Autowired
     private AlertaRepository repository;
+
+    private MockHttpSession gestor;
 
     private String incidente(String key, String camera, int severidade,
                              String tipo, String instante) {
@@ -52,6 +56,7 @@ class IncidentQueryApiTest {
 
     @BeforeEach
     void semear() throws Exception {
+        gestor = loginGestorBootstrap(mvc);
         repository.deleteAll();
         mvc.perform(post("/api/v1/incidents").contentType(MediaType.APPLICATION_JSON)
                 .content(incidente("q1", "CAM-01", 4, "FALL_RISK", "2026-08-10T08:00:00-03:00")));
@@ -63,7 +68,7 @@ class IncidentQueryApiTest {
 
     @Test
     void listaMaisRecentesPrimeiro() throws Exception {
-        mvc.perform(get("/api/v1/incidents"))
+        mvc.perform(get("/api/v1/incidents").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(3))
                 .andExpect(jsonPath("$.content[0].incidentKey").value("q3"));
@@ -71,21 +76,21 @@ class IncidentQueryApiTest {
 
     @Test
     void filtraPorCamera() throws Exception {
-        mvc.perform(get("/api/v1/incidents").param("camera", "CAM-01"))
+        mvc.perform(get("/api/v1/incidents").param("camera", "CAM-01").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(2));
     }
 
     @Test
     void filtraPorSeveridadeMinima() throws Exception {
-        mvc.perform(get("/api/v1/incidents").param("severityMin", "3"))
+        mvc.perform(get("/api/v1/incidents").param("severityMin", "3").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(2));
     }
 
     @Test
     void filtraPorInstanteParaCobrirLacunaDoSse() throws Exception {
-        mvc.perform(get("/api/v1/incidents").param("since", "2026-08-10T09:30:00-03:00"))
+        mvc.perform(get("/api/v1/incidents").param("since", "2026-08-10T09:30:00-03:00").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].incidentKey").value("q3"));
@@ -93,7 +98,7 @@ class IncidentQueryApiTest {
 
     @Test
     void pagina() throws Exception {
-        mvc.perform(get("/api/v1/incidents").param("size", "2").param("page", "0"))
+        mvc.perform(get("/api/v1/incidents").param("size", "2").param("page", "0").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.totalPages").value(2));
@@ -101,11 +106,11 @@ class IncidentQueryApiTest {
 
     @Test
     void operadorReconheceIncidente() throws Exception {
-        String lista = mvc.perform(get("/api/v1/incidents").param("camera", "CAM-02"))
+        String lista = mvc.perform(get("/api/v1/incidents").param("camera", "CAM-02").session(gestor))
                 .andReturn().getResponse().getContentAsString();
         Integer id = com.jayway.jsonpath.JsonPath.read(lista, "$.content[0].id");
 
-        mvc.perform(put("/api/v1/incidents/{id}/status", id)
+        mvc.perform(put("/api/v1/incidents/{id}/status", id).session(gestor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\": \"REVISADO\"}"))
                 .andExpect(status().isOk())
@@ -114,7 +119,7 @@ class IncidentQueryApiTest {
 
     @Test
     void statusDeIncidenteInexistenteDevolve404() throws Exception {
-        mvc.perform(put("/api/v1/incidents/{id}/status", 999999)
+        mvc.perform(put("/api/v1/incidents/{id}/status", 999999).session(gestor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\": \"RESOLVIDO\"}"))
                 .andExpect(status().isNotFound());
@@ -122,11 +127,11 @@ class IncidentQueryApiTest {
 
     @Test
     void buscaIncidentePorId() throws Exception {
-        String lista = mvc.perform(get("/api/v1/incidents").param("camera", "CAM-01"))
+        String lista = mvc.perform(get("/api/v1/incidents").param("camera", "CAM-01").session(gestor))
                 .andReturn().getResponse().getContentAsString();
         Integer id = com.jayway.jsonpath.JsonPath.read(lista, "$.content[0].id");
 
-        mvc.perform(get("/api/v1/incidents/{id}", id))
+        mvc.perform(get("/api/v1/incidents/{id}", id).session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id))
                 .andExpect(jsonPath("$.cameraId").value("CAM-01"));
@@ -134,7 +139,7 @@ class IncidentQueryApiTest {
 
     @Test
     void buscaPorIdInexistenteDevolve404() throws Exception {
-        mvc.perform(get("/api/v1/incidents/{id}", 999999))
+        mvc.perform(get("/api/v1/incidents/{id}", 999999).session(gestor))
                 .andExpect(status().isNotFound());
     }
 }

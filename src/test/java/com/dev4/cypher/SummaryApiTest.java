@@ -10,12 +10,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -44,6 +46,8 @@ class SummaryApiTest {
     @Autowired
     private AlertaRepository repository;
 
+    private MockHttpSession gestor;
+
     private Alerta incidente(String key, String camera, int severidade, OffsetDateTime quando) {
         Alerta a = new Alerta();
         a.setIncidentKey(key);
@@ -67,7 +71,8 @@ class SummaryApiTest {
     }
 
     @BeforeEach
-    void semear() {
+    void semear() throws Exception {
+        gestor = loginGestorBootstrap(mvc);
         repository.deleteAll();
         OffsetDateTime agora = OffsetDateTime.now();
         repository.save(incidente("s1", "CAM-01", 4, agora.minusHours(1)));
@@ -78,7 +83,7 @@ class SummaryApiTest {
 
     @Test
     void contaIncidentesDeHojeEDeOntem() throws Exception {
-        mvc.perform(get("/api/v1/summary"))
+        mvc.perform(get("/api/v1/summary").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.incidentesHoje").value(3))
                 .andExpect(jsonPath("$.incidentesOntem").value(1));
@@ -86,7 +91,7 @@ class SummaryApiTest {
 
     @Test
     void contaCriticosEPendentes() throws Exception {
-        mvc.perform(get("/api/v1/summary"))
+        mvc.perform(get("/api/v1/summary").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.criticosHoje").value(2))
                 .andExpect(jsonPath("$.pendentes").value(4));
@@ -94,7 +99,7 @@ class SummaryApiTest {
 
     @Test
     void heatmapAgregaPorEstacaoIncluindoAsSemIncidente() throws Exception {
-        mvc.perform(get("/api/v1/summary"))
+        mvc.perform(get("/api/v1/summary").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.heatmap.length()").value(2))
                 .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-01')].incidentes").value(2))
@@ -103,7 +108,7 @@ class SummaryApiTest {
 
     @Test
     void serieDeSeteDiasTemUmPontoPorDia() throws Exception {
-        mvc.perform(get("/api/v1/summary"))
+        mvc.perform(get("/api/v1/summary").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ultimosSeteDias.length()").value(7));
     }

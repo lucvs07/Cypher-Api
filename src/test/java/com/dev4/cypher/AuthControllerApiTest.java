@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static com.dev4.cypher.security.AuthTestSupport.GESTOR_PASSWORD;
 import static com.dev4.cypher.security.AuthTestSupport.GESTOR_USERNAME;
+import static com.dev4.cypher.security.AuthTestSupport.loginGestor;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -110,7 +111,8 @@ class AuthControllerApiTest {
 
     @Test
     void loginEstacaoComTokenValidoAutenticaComoOperadorESessaoSobrevive() throws Exception {
-        mvc.perform(post("/api/v1/stations")
+        MockHttpSession gestor = loginGestor(mvc, GESTOR_USERNAME, GESTOR_PASSWORD);
+        mvc.perform(post("/api/v1/stations").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"id\": \"EST-70\", \"nome\": \"Prensa 7\", \"setor\": \"estamparia\"}"));
         String token = estacoes.findById("EST-70").orElseThrow().getToken();
@@ -132,11 +134,12 @@ class AuthControllerApiTest {
 
     @Test
     void loginEstacaoComEstacaoInativaDevolve401() throws Exception {
-        mvc.perform(post("/api/v1/stations")
+        MockHttpSession gestor = loginGestor(mvc, GESTOR_USERNAME, GESTOR_PASSWORD);
+        mvc.perform(post("/api/v1/stations").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"id\": \"EST-71\", \"nome\": \"Prensa 8\", \"setor\": \"estamparia\"}"));
         String token = estacoes.findById("EST-71").orElseThrow().getToken();
-        mvc.perform(delete("/api/v1/stations/EST-71"))
+        mvc.perform(delete("/api/v1/stations/EST-71").session(gestor))
                 .andExpect(status().isNoContent());
 
         mvc.perform(post("/api/v1/auth/login-estacao")

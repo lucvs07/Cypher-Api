@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -15,6 +16,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.List;
 
+import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -114,7 +116,9 @@ class IncidentEventPublicationTest {
 
     @Test
     void streamAbreConexaoSse() throws Exception {
-        mvc.perform(get("/api/v1/incidents/stream"))
+        MockHttpSession gestor = loginGestorBootstrap(mvc);
+
+        mvc.perform(get("/api/v1/incidents/stream").session(gestor))
                 .andExpect(status().isOk());
     }
 }
