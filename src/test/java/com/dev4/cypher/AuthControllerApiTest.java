@@ -51,7 +51,7 @@ class AuthControllerApiTest {
     @BeforeEach
     void garantirGestorBootstrap() {
         if (!usuarios.existsByUsername(GESTOR_USERNAME)) {
-            usuarios.save(new Usuario(null, GESTOR_USERNAME, encoder.encode(GESTOR_PASSWORD)));
+            usuarios.save(new Usuario(null, GESTOR_USERNAME, encoder.encode(GESTOR_PASSWORD), "GESTOR", null));
         }
     }
 
@@ -158,6 +158,33 @@ class AuthControllerApiTest {
                         .content("{\"token\": \"token-que-nao-existe\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.erro").exists());
+    }
+
+    @Test
+    void loginComCredencialDeOperadorAutenticaComoOperadorComEstacaoEUsername() throws Exception {
+        MockHttpSession gestorSession = loginGestor(mvc, GESTOR_USERNAME, GESTOR_PASSWORD);
+        mvc.perform(post("/api/v1/stations").session(gestorSession)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EST-72\", \"nome\": \"Prensa 9\", \"setor\": \"estamparia\"}"));
+        mvc.perform(post("/api/v1/users").session(gestorSession)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\": \"op-cred\", \"papel\": \"OPERADOR\", "
+                        + "\"password\": \"senhaOp123\", \"estacaoId\": \"EST-72\"}"));
+        MockHttpSession session = new MockHttpSession();
+
+        mvc.perform(post("/api/v1/auth/login").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"op-cred\", \"password\": \"senhaOp123\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.papel").value("OPERADOR"))
+                .andExpect(jsonPath("$.estacaoId").value("EST-72"))
+                .andExpect(jsonPath("$.username").value("op-cred"));
+
+        mvc.perform(get("/api/v1/auth/me").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.papel").value("OPERADOR"))
+                .andExpect(jsonPath("$.estacaoId").value("EST-72"))
+                .andExpect(jsonPath("$.username").value("op-cred"));
     }
 
     @Test

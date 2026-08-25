@@ -1,5 +1,8 @@
 package com.dev4.cypher.dto;
 
-/** `papel` sempre `"GESTOR"` — é o único papel que `Usuario` representa (spec E4 §2.5). */
-public record UsuarioResponse(Long id, String username, String papel) {
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+/** `estacaoId` só vem preenchido para `papel == "OPERADOR"` — omitido para GESTOR. */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public record UsuarioResponse(Long id, String username, String papel, String estacaoId) {
 }

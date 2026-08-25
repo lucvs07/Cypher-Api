@@ -15,7 +15,7 @@ class UsuarioRepositoryTest {
 
     @Test
     void encontraPeloUsername() {
-        usuarios.saveAndFlush(new Usuario(null, "gestor1", "hash-qualquer"));
+        usuarios.saveAndFlush(new Usuario(null, "gestor1", "hash-qualquer", "GESTOR", null));
 
         assertThat(usuarios.findByUsername("gestor1")).isPresent();
         assertThat(usuarios.findByUsername("gestor1").orElseThrow().getPasswordHash())
@@ -25,7 +25,7 @@ class UsuarioRepositoryTest {
 
     @Test
     void existsByUsernameDistingueCadastrado() {
-        usuarios.saveAndFlush(new Usuario(null, "gestor1", "hash"));
+        usuarios.saveAndFlush(new Usuario(null, "gestor1", "hash", "GESTOR", null));
 
         assertThat(usuarios.existsByUsername("gestor1")).isTrue();
         assertThat(usuarios.existsByUsername("gestor2")).isFalse();
@@ -33,7 +33,7 @@ class UsuarioRepositoryTest {
 
     @Test
     void idEhGeradoAutomaticamente() {
-        Usuario salvo = usuarios.saveAndFlush(new Usuario(null, "gestor1", "hash"));
+        Usuario salvo = usuarios.saveAndFlush(new Usuario(null, "gestor1", "hash", "GESTOR", null));
 
         assertThat(salvo.getId()).isNotNull();
     }

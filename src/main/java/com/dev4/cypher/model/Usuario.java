@@ -12,11 +12,11 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Gestor autenticado por usuário/senha. É o único papel que esta entidade
- * representa — não existe coluna de papel: {@code OPERADOR} nunca é um
- * {@code Usuario}, autentica pelo token da própria {@code Estacao} (spec E4
- * §2.5). {@code UsuarioResponse.papel} devolve sempre a string literal
- * {@code "GESTOR"}.
+ * Conta autenticada por usuário/senha — GESTOR ou OPERADOR (revisão pós-E4:
+ * OPERADOR ganhou uma segunda forma de entrar, além do token de estação).
+ * {@code estacaoId} só é preenchido para {@code OPERADOR}, vinculando a
+ * conta a uma única estação (validado em {@code UsuarioService}, não como
+ * constraint de banco — mesmo padrão de {@code Camera.estacaoId}).
  */
 @Entity
 @Table(name = "usuarios")
@@ -36,4 +36,11 @@ public class Usuario {
     /** BCrypt, nunca texto puro — gravado só pelo `PasswordEncoder` (Tarefa 1). */
     @Column(nullable = false, length = 100)
     private String passwordHash;
+
+    @Column(nullable = false, length = 20)
+    private String papel;
+
+    /** Só preenchido quando {@code papel} é {@code OPERADOR}. */
+    @Column(length = 20)
+    private String estacaoId;
 }

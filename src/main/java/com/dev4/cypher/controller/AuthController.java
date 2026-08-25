@@ -53,6 +53,11 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("erro", "Usuario ou senha invalidos"));
         }
+        if ("OPERADOR".equals(usuario.getPapel())) {
+            sessionAuthenticator.autenticar(
+                    new OperadorAuthentication(usuario.getEstacaoId(), usuario.getUsername()), request, response);
+            return ResponseEntity.ok(AuthResponse.operador(usuario.getEstacaoId(), usuario.getUsername()));
+        }
         sessionAuthenticator.autenticar(new GestorAuthentication(usuario.getUsername()), request, response);
         return ResponseEntity.ok(AuthResponse.gestor(usuario.getUsername()));
     }
@@ -86,7 +91,9 @@ public class AuthController {
             return ResponseEntity.ok(AuthResponse.gestor(g.getUsername()));
         }
         if (auth instanceof OperadorAuthentication o) {
-            return ResponseEntity.ok(AuthResponse.operador(o.getEstacaoId()));
+            return ResponseEntity.ok(o.getUsername() != null
+                    ? AuthResponse.operador(o.getEstacaoId(), o.getUsername())
+                    : AuthResponse.operador(o.getEstacaoId()));
         }
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }

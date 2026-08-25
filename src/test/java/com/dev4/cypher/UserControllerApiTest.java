@@ -55,10 +55,32 @@ class UserControllerApiTest {
     }
 
     @Test
-    void papelOperadorDevolve422() throws Exception {
+    void papelOperadorSemEstacaoIdDevolve422() throws Exception {
         mvc.perform(post("/api/v1/users").session(gestor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\": \"op1\", \"papel\": \"OPERADOR\", \"password\": \"x\"}"))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void papelOperadorComEstacaoValidaDevolve201() throws Exception {
+        mvc.perform(post("/api/v1/stations").session(gestor)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EST-80\", \"nome\": \"Estacao 80\", \"setor\": \"montagem\"}"));
+
+        mvc.perform(post("/api/v1/users").session(gestor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"op1\", \"papel\": \"OPERADOR\", \"password\": \"x\", \"estacaoId\": \"EST-80\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.papel").value("OPERADOR"))
+                .andExpect(jsonPath("$.estacaoId").value("EST-80"));
+    }
+
+    @Test
+    void papelOperadorComEstacaoInexistenteDevolve422() throws Exception {
+        mvc.perform(post("/api/v1/users").session(gestor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"op1\", \"papel\": \"OPERADOR\", \"password\": \"x\", \"estacaoId\": \"EST-99\"}"))
                 .andExpect(status().isUnprocessableEntity());
     }
 

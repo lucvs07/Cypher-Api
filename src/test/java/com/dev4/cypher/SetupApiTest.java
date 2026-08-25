@@ -52,7 +52,7 @@ class SetupApiTest {
 
     @Test
     void configuradoTrueQuandoJaExisteUsuario() throws Exception {
-        usuarios.saveAndFlush(new Usuario(null, "gestor1", "hash-qualquer"));
+        usuarios.saveAndFlush(new Usuario(null, "gestor1", "hash-qualquer", "GESTOR", null));
 
         mvc.perform(get("/api/v1/setup/status"))
                 .andExpect(status().isOk())
@@ -81,7 +81,7 @@ class SetupApiTest {
 
     @Test
     void setupSeSegundaVezDevolve409() throws Exception {
-        usuarios.saveAndFlush(new com.dev4.cypher.model.Usuario(null, "ja-existe", "hash"));
+        usuarios.saveAndFlush(new com.dev4.cypher.model.Usuario(null, "ja-existe", "hash", "GESTOR", null));
 
         mvc.perform(post("/api/v1/setup")
                         .contentType(MediaType.APPLICATION_JSON)
