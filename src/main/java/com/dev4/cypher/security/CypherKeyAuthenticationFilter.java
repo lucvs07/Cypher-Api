@@ -15,21 +15,26 @@ import java.util.Optional;
 
 /**
  * Autentica ROLE_PIPELINE a partir do header X-Cypher-Key, validado contra
- * Camera.apiKey (spec E4 §2.3). Nesta tarefa o modo é permissivo: header
- * ausente ou que não bate com nenhuma câmera não rejeita nada, a requisição
- * segue sem autenticação de pipeline — a Tarefa 13 (sempre a última do
- * plano) é quem torna o header obrigatório, e só nos endpoints de ingestão.
+ * Camera.apiKey (spec E4 §2.3). Nas rotas de ingestão (POST/PATCH
+ * /api/v1/incidents — nunca PUT .../status, que é ação do operador humano,
+ * E3) o header agora é OBRIGATÓRIO: ausente ou inválido devolve 401 e
+ * encerra a cadeia aqui, sem chamar {@code filterChain.doFilter}. Em
+ * qualquer outra rota o comportamento continua exatamente como a Tarefa 8
+ * deixou — autentica se a chave bater, segue adiante de qualquer forma.
  *
- * <p>Nunca toca HttpSession — diferente do login por sessão (GESTOR/OPERADOR
- * via {@code AuthController}), uma requisição de pipeline não carrega
- * cookie, e autenticar aqui não cria nem depende de sessão HTTP.
+ * <p>Este é o flip final do plano (spec §5/§7): o pipeline Python
+ * (`cypher-capture`) só passa a enviar o header numa entrega separada
+ * (order-step 2), e essa mudança tem que já estar implantada antes deste
+ * flip — por isso esta é sempre a última tarefa.
+ *
+ * <p>Nunca toca HttpSession — uma requisição de pipeline não carrega
+ * cookie, e autenticar/rejeitar aqui não cria nem depende de sessão HTTP.
  *
  * <p>Registrado com {@code addFilterAfter(..., SecurityContextHolderFilter.class)}
- * (Step 4): roda tecnicamente depois do filtro que restaura o contexto a
- * partir da sessão, mas nunca lê a sessão e só sobrescreve o
- * {@code Authentication} quando a chave é válida — é "independente da
- * sessão", o espírito de "antes do filtro de sessão" da spec (E4 §2.3): a
- * autenticação por chave nunca depende do que a sessão carregava.
+ * (`SecurityConfig`, Tarefa 8): roda tecnicamente depois do filtro que
+ * restaura o contexto a partir da sessão, mas nunca lê a sessão — é
+ * "independente da sessão", o espírito de "antes do filtro de sessão" da
+ * spec (E4 §2.3).
  */
 public class CypherKeyAuthenticationFilter extends OncePerRequestFilter {
 
@@ -47,11 +52,24 @@ public class CypherKeyAuthenticationFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain)
             throws ServletException, IOException {
         String chave = request.getHeader(HEADER);
-        if (chave != null) {
-            Optional<Camera> camera = cameras.findByApiKey(chave);
-            camera.ifPresent(c ->
-                    SecurityContextHolder.getContext().setAuthentication(new PipelineAuthentication(c.getId())));
+        Optional<Camera> camera = chave != null ? cameras.findByApiKey(chave) : Optional.empty();
+        camera.ifPresent(c ->
+                SecurityContextHolder.getContext().setAuthentication(new PipelineAuthentication(c.getId())));
+
+        if (isRotaDeIngestao(request) && camera.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
         }
         filterChain.doFilter(request, response);
+    }
+
+    /** POST /api/v1/incidents (criação) ou PATCH /api/v1/incidents/{incidentKey} (fechamento). */
+    private boolean isRotaDeIngestao(HttpServletRequest request) {
+        String metodo = request.getMethod();
+        String caminho = request.getRequestURI();
+        if ("POST".equals(metodo) && "/api/v1/incidents".equals(caminho)) {
+            return true;
+        }
+        return "PATCH".equals(metodo) && caminho.startsWith("/api/v1/incidents/");
     }
 }

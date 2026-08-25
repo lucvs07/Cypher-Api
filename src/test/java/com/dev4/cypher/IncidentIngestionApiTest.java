@@ -1,5 +1,8 @@
 package com.dev4.cypher;
 
+import com.dev4.cypher.model.Camera;
+import com.dev4.cypher.repository.CameraRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -7,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static com.dev4.cypher.security.CypherKeyAuthenticationFilter.HEADER;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -18,6 +22,11 @@ class IncidentIngestionApiTest {
 
     @Autowired
     private MockMvc mvc;
+
+    @Autowired
+    private CameraRepository cameras;
+
+    private static final String CHAVE = "chave-ingestao-teste";
 
     private static final String QUEDA = """
             {
@@ -40,9 +49,24 @@ class IncidentIngestionApiTest {
             }
             """;
 
+    /**
+     * Upsert, nunca `deleteAll`: outras classes de teste do contexto padrão
+     * também escrevem câmera/estação — apagar tudo aqui derrubaria fixture
+     * de quem rodou antes na mesma suíte. A chave é reaproveitada por
+     * qualquer câmera cadastrada (o filtro não compara com `cameraId` do
+     * corpo — spec E4 §2.3).
+     */
+    @BeforeEach
+    void garantirCameraDeIngestao() {
+        if (cameras.findById("CAM-INGESTAO-TESTE").isEmpty()) {
+            cameras.saveAndFlush(new Camera("CAM-INGESTAO-TESTE", "Camera de teste", "EST-INGESTAO-TESTE",
+                    "http://127.0.0.1:8999/stream", "f", true, CHAVE));
+        }
+    }
+
     @Test
     void criaIncidenteEDevolve201() throws Exception {
-        mvc.perform(post("/api/v1/incidents")
+        mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(QUEDA))
                 .andExpect(status().isCreated())
@@ -55,19 +79,33 @@ class IncidentIngestionApiTest {
     }
 
     @Test
+    void ingestaoSemChaveDevolve401() throws Exception {
+        mvc.perform(post("/api/v1/incidents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(QUEDA.replace("run-api", "run-sem-chave")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void ingestaoComChaveInvalidaDevolve401() throws Exception {
+        mvc.perform(post("/api/v1/incidents").header(HEADER, "chave-que-nao-existe")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(QUEDA.replace("run-api", "run-chave-invalida")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void ingestaoRepetidaDevolve200ComOMesmoId() throws Exception {
         String corpo = QUEDA.replace("run-api", "run-retry");
 
-        String primeiro = mvc.perform(post("/api/v1/incidents")
+        String primeiro = mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE)
                         .contentType(MediaType.APPLICATION_JSON).content(corpo))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
-        // Tipar o id num local é necessário: JsonPath.read é genérico, e passá-lo
-        // direto faz o compilador escolher value(Matcher) em vez de value(Object).
         Integer idOriginal = com.jayway.jsonpath.JsonPath.read(primeiro, "$.id");
 
-        mvc.perform(post("/api/v1/incidents")
+        mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE)
                         .contentType(MediaType.APPLICATION_JSON).content(corpo))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(idOriginal));
@@ -75,7 +113,7 @@ class IncidentIngestionApiTest {
 
     @Test
     void rejeitaSeveridadeForaDaFaixa() throws Exception {
-        mvc.perform(post("/api/v1/incidents")
+        mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(QUEDA.replace("\"severity\": 4", "\"severity\": 9")
                                 .replace("run-api", "run-invalido")))
@@ -84,7 +122,7 @@ class IncidentIngestionApiTest {
 
     @Test
     void rejeitaPayloadSemChaveDeIdempotencia() throws Exception {
-        mvc.perform(post("/api/v1/incidents")
+        mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(QUEDA.replace(
                                 "\"incidentKey\": \"CAM-01:run-api:track-7:20260810T143102482Z\"",
@@ -95,10 +133,11 @@ class IncidentIngestionApiTest {
     @Test
     void fechaIncidenteComDuracaoEPico() throws Exception {
         String corpo = QUEDA.replace("run-api", "run-close");
-        mvc.perform(post("/api/v1/incidents")
+        mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE)
                 .contentType(MediaType.APPLICATION_JSON).content(corpo));
 
         mvc.perform(patch("/api/v1/incidents/CAM-01:run-close:track-7:20260810T143102482Z")
+                        .header(HEADER, CHAVE)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -114,8 +153,16 @@ class IncidentIngestionApiTest {
     }
 
     @Test
+    void fechamentoSemChaveDevolve401() throws Exception {
+        mvc.perform(patch("/api/v1/incidents/nao-importa")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"durationSeconds\": 1.0}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void fechamentoDeChaveInexistenteDevolve404() throws Exception {
-        mvc.perform(patch("/api/v1/incidents/nao-existe")
+        mvc.perform(patch("/api/v1/incidents/nao-existe").header(HEADER, CHAVE)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"durationSeconds\": 1.0}"))
                 .andExpect(status().isNotFound());

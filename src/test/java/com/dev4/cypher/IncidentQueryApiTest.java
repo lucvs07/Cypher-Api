@@ -1,5 +1,7 @@
 package com.dev4.cypher;
 
+import com.dev4.cypher.model.Camera;
+import com.dev4.cypher.repository.CameraRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.dev4.cypher.repository.AlertaRepository;
 
 import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
+import static com.dev4.cypher.security.CypherKeyAuthenticationFilter.HEADER;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -27,6 +30,9 @@ class IncidentQueryApiTest {
 
     @Autowired
     private AlertaRepository repository;
+
+    @Autowired
+    private CameraRepository cameras;
 
     private MockHttpSession gestor;
 
@@ -57,12 +63,19 @@ class IncidentQueryApiTest {
     @BeforeEach
     void semear() throws Exception {
         gestor = loginGestorBootstrap(mvc);
+        if (cameras.findById("CAM-INGESTAO-TESTE").isEmpty()) {
+            cameras.saveAndFlush(new Camera("CAM-INGESTAO-TESTE", "Camera de teste",
+                    "EST-INGESTAO-TESTE", "http://127.0.0.1:8999/stream", "f", true, "chave-ingestao-teste"));
+        }
         repository.deleteAll();
-        mvc.perform(post("/api/v1/incidents").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/incidents").header(HEADER, "chave-ingestao-teste")
+                .contentType(MediaType.APPLICATION_JSON)
                 .content(incidente("q1", "CAM-01", 4, "FALL_RISK", "2026-08-10T08:00:00-03:00")));
-        mvc.perform(post("/api/v1/incidents").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/incidents").header(HEADER, "chave-ingestao-teste")
+                .contentType(MediaType.APPLICATION_JSON)
                 .content(incidente("q2", "CAM-02", 2, "ERGONOMIC_RISK", "2026-08-10T09:00:00-03:00")));
-        mvc.perform(post("/api/v1/incidents").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/incidents").header(HEADER, "chave-ingestao-teste")
+                .contentType(MediaType.APPLICATION_JSON)
                 .content(incidente("q3", "CAM-01", 3, "ZONE_VIOLATION", "2026-08-10T10:00:00-03:00")));
     }
 

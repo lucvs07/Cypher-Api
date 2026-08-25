@@ -1,6 +1,7 @@
 package com.dev4.cypher;
 
 import com.dev4.cypher.repository.AlertaRepository;
+import com.dev4.cypher.repository.CameraRepository;
 import com.dev4.cypher.repository.EstacaoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
 import static com.dev4.cypher.security.AuthTestSupport.loginOperador;
+import static com.dev4.cypher.security.CypherKeyAuthenticationFilter.HEADER;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -33,6 +35,9 @@ class IncidentOperatorScopeApiTest {
 
     @Autowired
     private AlertaRepository alertas;
+
+    @Autowired
+    private CameraRepository cameras;
 
     private MockHttpSession gestor;
     private MockHttpSession operadorEst01;
@@ -56,17 +61,22 @@ class IncidentOperatorScopeApiTest {
                 .content("{\"id\": \"CAM-92\", \"nome\": \"C2\", \"estacaoId\": \"EST-92\", "
                         + "\"streamUrl\": \"http://127.0.0.1:8292/stream\", \"fonte\": \"f\"}"));
 
-        String r1 = mvc.perform(post("/api/v1/incidents").contentType(MediaType.APPLICATION_JSON)
+        String chave = cameras.findById("CAM-91").orElseThrow().getApiKey();
+
+        String r1 = mvc.perform(post("/api/v1/incidents").header(HEADER, chave)
+                        .contentType(MediaType.APPLICATION_JSON)
                         .content(incidente("op1", "CAM-91")))
                 .andReturn().getResponse().getContentAsString();
         idIncidenteEst01 = ((Number) com.jayway.jsonpath.JsonPath.read(r1, "$.id")).longValue();
 
-        String r2 = mvc.perform(post("/api/v1/incidents").contentType(MediaType.APPLICATION_JSON)
+        String r2 = mvc.perform(post("/api/v1/incidents").header(HEADER, chave)
+                        .contentType(MediaType.APPLICATION_JSON)
                         .content(incidente("op2", "CAM-92")))
                 .andReturn().getResponse().getContentAsString();
         idIncidenteEst02 = ((Number) com.jayway.jsonpath.JsonPath.read(r2, "$.id")).longValue();
 
-        String r3 = mvc.perform(post("/api/v1/incidents").contentType(MediaType.APPLICATION_JSON)
+        String r3 = mvc.perform(post("/api/v1/incidents").header(HEADER, chave)
+                        .contentType(MediaType.APPLICATION_JSON)
                         .content(incidente("op3", "CAM-DESCONHECIDA")))
                 .andReturn().getResponse().getContentAsString();
         idIncidenteCameraDesconhecida = ((Number) com.jayway.jsonpath.JsonPath.read(r3, "$.id")).longValue();

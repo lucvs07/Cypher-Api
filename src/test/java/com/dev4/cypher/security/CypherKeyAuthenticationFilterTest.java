@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.Authentication;
@@ -75,5 +76,78 @@ class CypherKeyAuthenticationFilterTest {
         filtro.doFilter(request, response, chain);
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    void ingestaoPostSemChaveDevolve401ENaoChamaProximoFiltro() throws Exception {
+        CypherKeyAuthenticationFilter filtro = new CypherKeyAuthenticationFilter(cameras);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/incidents");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        boolean[] proximoFiltroChamado = {false};
+        FilterChain chain = (req, res) -> proximoFiltroChamado[0] = true;
+
+        filtro.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(proximoFiltroChamado[0]).isFalse();
+    }
+
+    @Test
+    void ingestaoPatchSemChaveDevolve401() throws Exception {
+        CypherKeyAuthenticationFilter filtro = new CypherKeyAuthenticationFilter(cameras);
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "PATCH", "/api/v1/incidents/CAM-01:run:track:20260810T000000000Z");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = (req, res) -> { };
+
+        filtro.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+    }
+
+    @Test
+    void ingestaoComChaveValidaSeguePraFrente() throws Exception {
+        cameras.saveAndFlush(new Camera("CAM-81", "Frontal", "EST-81",
+                "http://127.0.0.1:8181/stream", "rtsp://x", true, "chave-ingestao-valida"));
+        CypherKeyAuthenticationFilter filtro = new CypherKeyAuthenticationFilter(cameras);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/incidents");
+        request.addHeader(CypherKeyAuthenticationFilter.HEADER, "chave-ingestao-valida");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        boolean[] proximoFiltroChamado = {false};
+        FilterChain chain = (req, res) -> proximoFiltroChamado[0] = true;
+
+        filtro.doFilter(request, response, chain);
+
+        assertThat(proximoFiltroChamado[0]).isTrue();
+    }
+
+    @Test
+    void rotaQueNaoEDeIngestaoContinuaPermissivaSemChave() throws Exception {
+        CypherKeyAuthenticationFilter filtro = new CypherKeyAuthenticationFilter(cameras);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/cameras/CAM-01/config");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        boolean[] proximoFiltroChamado = {false};
+        FilterChain chain = (req, res) -> proximoFiltroChamado[0] = true;
+
+        filtro.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+        assertThat(proximoFiltroChamado[0]).isTrue();
+    }
+
+    @Test
+    void statusDeIncidenteAcaoDoOperadorNaoEIngestaoENaoExigeChave() throws Exception {
+        // PUT .../status e o reconhecimento humano (E3), nao a ingestao do
+        // pipeline — nunca deve exigir X-Cypher-Key.
+        CypherKeyAuthenticationFilter filtro = new CypherKeyAuthenticationFilter(cameras);
+        MockHttpServletRequest request = new MockHttpServletRequest("PUT", "/api/v1/incidents/1/status");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        boolean[] proximoFiltroChamado = {false};
+        FilterChain chain = (req, res) -> proximoFiltroChamado[0] = true;
+
+        filtro.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+        assertThat(proximoFiltroChamado[0]).isTrue();
     }
 }

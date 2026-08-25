@@ -124,9 +124,7 @@ class SecurityLockdownApiTest {
     }
 
     @Test
-    void ingestaoContinuaAbertaSemChave() throws Exception {
-        // Flip para obrigatorio e a Tarefa 13 — aqui a ingestao ainda aceita
-        // sem X-Cypher-Key (spec E4 §5/§7).
+    void ingestaoSemChaveDevolve401AposOFlipFinal() throws Exception {
         mvc.perform(post("/api/v1/incidents").contentType(MediaType.APPLICATION_JSON).content("""
                 {
                   "incidentKey": "CAM-01:run-lock:track-1:20260810T160000000Z",
@@ -136,6 +134,6 @@ class SecurityLockdownApiTest {
                   "zoneName": null, "zoneStatus": "outside", "epiPresent": [], "epiMissing": [],
                   "detectedAt": "2026-08-10T16:00:00Z", "snapshotUrl": null
                 }
-                """)).andExpect(status().isCreated());
+                """)).andExpect(status().isUnauthorized());
     }
 }
