@@ -1,6 +1,9 @@
 package com.dev4.cypher;
 
 import com.dev4.cypher.event.IncidentCreatedEvent;
+import com.dev4.cypher.model.Camera;
+import com.dev4.cypher.repository.CameraRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -8,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -15,6 +19,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.List;
 
+import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
+import static com.dev4.cypher.security.CypherKeyAuthenticationFilter.HEADER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -30,6 +36,20 @@ class IncidentEventPublicationTest {
 
     @Autowired
     private Espiao espiao;
+
+    @Autowired
+    private CameraRepository cameras;
+
+    // A câmera cadastrada é a MESMA "CAM-INGESTAO-TESTE" usada no corpo dos
+    // incidentes abaixo (achado de segurança da revisão final: a chave só
+    // autentica para agir sobre a própria câmera).
+    @BeforeEach
+    void garantirCameraDeIngestao() {
+        if (cameras.findById("CAM-INGESTAO-TESTE").isEmpty()) {
+            cameras.saveAndFlush(new Camera("CAM-INGESTAO-TESTE", "Camera de teste", "EST-INGESTAO-TESTE",
+                    "http://127.0.0.1:8999/stream", "f", true, "chave-ingestao-teste"));
+        }
+    }
 
     /**
      * Registra o que chega depois do commit — nunca durante a transação.
@@ -51,8 +71,8 @@ class IncidentEventPublicationTest {
     void publicaEventoSomenteDepoisDoCommit() throws Exception {
         String corpo = """
                 {
-                  "incidentKey": "CAM-01:run-evt:track-1:20260810T150000000Z",
-                  "cameraId": "CAM-01",
+                  "incidentKey": "CAM-INGESTAO-TESTE:run-evt:track-1:20260810T150000000Z",
+                  "cameraId": "CAM-INGESTAO-TESTE",
                   "runId": "run-evt",
                   "trackId": 1,
                   "type": "FALL_RISK",
@@ -70,20 +90,20 @@ class IncidentEventPublicationTest {
                 }
                 """;
 
-        mvc.perform(post("/api/v1/incidents")
+        mvc.perform(post("/api/v1/incidents").header(HEADER, "chave-ingestao-teste")
                         .contentType(MediaType.APPLICATION_JSON).content(corpo))
                 .andExpect(status().isCreated());
 
         assertThat(espiao.recebidosAposCommit)
-                .contains("CAM-01:run-evt:track-1:20260810T150000000Z");
+                .contains("CAM-INGESTAO-TESTE:run-evt:track-1:20260810T150000000Z");
     }
 
     @Test
     void retryNaoRepublicaOEvento() throws Exception {
         String corpo = """
                 {
-                  "incidentKey": "CAM-01:run-retry-evt:track-1:20260810T150000000Z",
-                  "cameraId": "CAM-01",
+                  "incidentKey": "CAM-INGESTAO-TESTE:run-retry-evt:track-1:20260810T150000000Z",
+                  "cameraId": "CAM-INGESTAO-TESTE",
                   "runId": "run-retry-evt",
                   "trackId": 1,
                   "type": "FALL_RISK",
@@ -101,9 +121,9 @@ class IncidentEventPublicationTest {
                 }
                 """;
 
-        mvc.perform(post("/api/v1/incidents")
+        mvc.perform(post("/api/v1/incidents").header(HEADER, "chave-ingestao-teste")
                 .contentType(MediaType.APPLICATION_JSON).content(corpo));
-        mvc.perform(post("/api/v1/incidents")
+        mvc.perform(post("/api/v1/incidents").header(HEADER, "chave-ingestao-teste")
                 .contentType(MediaType.APPLICATION_JSON).content(corpo));
 
         long publicacoes = espiao.recebidosAposCommit.stream()
@@ -114,7 +134,9 @@ class IncidentEventPublicationTest {
 
     @Test
     void streamAbreConexaoSse() throws Exception {
-        mvc.perform(get("/api/v1/incidents/stream"))
+        MockHttpSession gestor = loginGestorBootstrap(mvc);
+
+        mvc.perform(get("/api/v1/incidents/stream").session(gestor))
                 .andExpect(status().isOk());
     }
 }

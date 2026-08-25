@@ -27,10 +27,13 @@ public interface AlertaRepository extends JpaRepository<Alerta, Long> {
               AND (:cameraId IS NULL OR a.cameraId = :cameraId)
               AND (:severityMin IS NULL OR a.severidade >= :severityMin)
               AND (:status IS NULL OR a.status = :status)
+              AND (:estacaoId IS NULL OR a.cameraId IN
+                    (SELECT c.id FROM Camera c WHERE c.estacaoId = :estacaoId))
             """)
     Page<Alerta> buscar(@Param("since") OffsetDateTime since,
                         @Param("cameraId") String cameraId,
                         @Param("severityMin") Integer severityMin,
                         @Param("status") AlertaStatus status,
+                        @Param("estacaoId") String estacaoId,
                         Pageable pageable);
 }

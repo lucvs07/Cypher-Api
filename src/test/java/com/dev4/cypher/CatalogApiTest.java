@@ -5,10 +5,12 @@ import com.dev4.cypher.model.AlertaNivel;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.model.AlertaTipo;
 import com.dev4.cypher.repository.AlertaRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -41,9 +44,16 @@ class CatalogApiTest {
     @Autowired
     private AlertaRepository alertas;
 
+    private MockHttpSession gestor;
+
+    @BeforeEach
+    void autenticar() throws Exception {
+        gestor = loginGestorBootstrap(mvc);
+    }
+
     @Test
     void listaCamerasComUrlDeStream() throws Exception {
-        mvc.perform(get("/api/v1/cameras"))
+        mvc.perform(get("/api/v1/cameras").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value("CAM-01"))
                 .andExpect(jsonPath("$[0].estacaoId").value("EST-01"))
@@ -52,14 +62,14 @@ class CatalogApiTest {
 
     @Test
     void naoExpoeAFonteQuePodeConterCredencial() throws Exception {
-        mvc.perform(get("/api/v1/cameras"))
+        mvc.perform(get("/api/v1/cameras").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].fonte").doesNotExist());
     }
 
     @Test
     void listaEstacoesComSuasCameras() throws Exception {
-        mvc.perform(get("/api/v1/stations"))
+        mvc.perform(get("/api/v1/stations").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value("EST-01"))
                 .andExpect(jsonPath("$[0].setor").value("montagem"))
@@ -89,16 +99,14 @@ class CatalogApiTest {
         incidente.setStatus(AlertaStatus.PENDENTE);
         alertas.saveAndFlush(incidente);
 
-        mvc.perform(delete("/api/v1/cameras/CAM-01")).andExpect(status().isNoContent());
+        mvc.perform(delete("/api/v1/cameras/CAM-01").session(gestor)).andExpect(status().isNoContent());
 
         // Saiu da navegação...
-        mvc.perform(get("/api/v1/cameras"))
+        mvc.perform(get("/api/v1/cameras").session(gestor))
                 .andExpect(jsonPath("$[?(@.id=='CAM-01')]").isEmpty());
 
-        // ...mas o incidente continua consultável. É a razão de ser do soft
-        // delete: não há FK entre incidente e câmera, então apagar de verdade
-        // deixaria o histórico apontando para um código inexistente.
-        mvc.perform(get("/api/v1/incidents").param("camera", "CAM-01"))
+        // ...mas o incidente continua consultável.
+        mvc.perform(get("/api/v1/incidents").param("camera", "CAM-01").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
     }

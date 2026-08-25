@@ -9,9 +9,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -33,6 +35,8 @@ class CatalogWriteApiTest {
     @Autowired
     private CameraRepository cameras;
 
+    private MockHttpSession gestor;
+
     private static final String ESTACAO = """
             {"id": "EST-77", "nome": "Esteira de montagem", "setor": "montagem"}
             """;
@@ -48,23 +52,26 @@ class CatalogWriteApiTest {
             """;
 
     @BeforeEach
-    void limpar() {
+    void limpar() throws Exception {
+        gestor = loginGestorBootstrap(mvc);
         cameras.deleteAll();
         estacoes.deleteAll();
     }
 
     @Test
     void cadastraEstacaoEDevolve201() throws Exception {
-        mvc.perform(post("/api/v1/stations")
+        mvc.perform(post("/api/v1/stations").session(gestor)
                         .contentType(MediaType.APPLICATION_JSON).content(ESTACAO))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value("EST-77"))
-                .andExpect(jsonPath("$.ativa").value(true));
+                .andExpect(jsonPath("$.ativa").value(true))
+                .andExpect(jsonPath("$.token").exists())
+                .andExpect(jsonPath("$.cameras").doesNotExist());
     }
 
     @Test
     void recusaCodigoComFormatoInvalido() throws Exception {
-        mvc.perform(post("/api/v1/stations")
+        mvc.perform(post("/api/v1/stations").session(gestor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"id\": \"est_77\", \"nome\": \"X\"}"))
                 .andExpect(status().isBadRequest());
@@ -72,10 +79,10 @@ class CatalogWriteApiTest {
 
     @Test
     void codigoDuplicadoDevolve409ComMensagem() throws Exception {
-        mvc.perform(post("/api/v1/stations")
+        mvc.perform(post("/api/v1/stations").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON).content(ESTACAO));
 
-        mvc.perform(post("/api/v1/stations")
+        mvc.perform(post("/api/v1/stations").session(gestor)
                         .contentType(MediaType.APPLICATION_JSON).content(ESTACAO))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.erro").value(Matchers.containsString("EST-77")));
@@ -83,10 +90,10 @@ class CatalogWriteApiTest {
 
     @Test
     void editaEstacao() throws Exception {
-        mvc.perform(post("/api/v1/stations")
+        mvc.perform(post("/api/v1/stations").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON).content(ESTACAO));
 
-        mvc.perform(put("/api/v1/stations/EST-77")
+        mvc.perform(put("/api/v1/stations/EST-77").session(gestor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"id\": \"EST-77\", \"nome\": \"Esteira 1\", \"setor\": \"final\"}"))
                 .andExpect(status().isOk())
@@ -95,10 +102,10 @@ class CatalogWriteApiTest {
 
     @Test
     void renomearCodigoDevolve409() throws Exception {
-        mvc.perform(post("/api/v1/stations")
+        mvc.perform(post("/api/v1/stations").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON).content(ESTACAO));
 
-        mvc.perform(put("/api/v1/stations/EST-77")
+        mvc.perform(put("/api/v1/stations/EST-77").session(gestor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"id\": \"EST-88\", \"nome\": \"Esteira\"}"))
                 .andExpect(status().isConflict());
@@ -106,7 +113,7 @@ class CatalogWriteApiTest {
 
     @Test
     void editarEstacaoInexistenteDevolve404() throws Exception {
-        mvc.perform(put("/api/v1/stations/EST-99")
+        mvc.perform(put("/api/v1/stations/EST-99").session(gestor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"id\": \"EST-99\", \"nome\": \"X\"}"))
                 .andExpect(status().isNotFound());
@@ -114,23 +121,23 @@ class CatalogWriteApiTest {
 
     @Test
     void desativaEstacaoEDevolve204() throws Exception {
-        mvc.perform(post("/api/v1/stations")
+        mvc.perform(post("/api/v1/stations").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON).content(ESTACAO));
 
-        mvc.perform(delete("/api/v1/stations/EST-77")).andExpect(status().isNoContent());
+        mvc.perform(delete("/api/v1/stations/EST-77").session(gestor)).andExpect(status().isNoContent());
 
-        mvc.perform(get("/api/v1/stations"))
+        mvc.perform(get("/api/v1/stations").session(gestor))
                 .andExpect(jsonPath("$[?(@.id=='EST-77')]").isEmpty());
-        mvc.perform(get("/api/v1/stations").param("incluirInativas", "true"))
+        mvc.perform(get("/api/v1/stations").session(gestor).param("incluirInativas", "true"))
                 .andExpect(jsonPath("$[?(@.id=='EST-77')].ativa").value(false));
     }
 
     @Test
     void cadastraCameraEDevolve201ComFonte() throws Exception {
-        mvc.perform(post("/api/v1/stations")
+        mvc.perform(post("/api/v1/stations").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON).content(ESTACAO));
 
-        mvc.perform(post("/api/v1/cameras")
+        mvc.perform(post("/api/v1/cameras").session(gestor)
                         .contentType(MediaType.APPLICATION_JSON).content(CAMERA))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value("CAM-77"))
@@ -139,7 +146,7 @@ class CatalogWriteApiTest {
 
     @Test
     void cameraDeEstacaoInexistenteDevolve422() throws Exception {
-        mvc.perform(post("/api/v1/cameras")
+        mvc.perform(post("/api/v1/cameras").session(gestor)
                         .contentType(MediaType.APPLICATION_JSON).content(CAMERA))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.erro").value(Matchers.containsString("EST-77")));
@@ -147,59 +154,119 @@ class CatalogWriteApiTest {
 
     @Test
     void itemIndividualTrazFonteMasAListaNao() throws Exception {
-        mvc.perform(post("/api/v1/stations")
+        mvc.perform(post("/api/v1/stations").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON).content(ESTACAO));
-        mvc.perform(post("/api/v1/cameras")
+        mvc.perform(post("/api/v1/cameras").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON).content(CAMERA));
 
-        mvc.perform(get("/api/v1/cameras/CAM-77"))
+        mvc.perform(get("/api/v1/cameras/CAM-77").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fonte").exists());
 
-        mvc.perform(get("/api/v1/cameras"))
+        mvc.perform(get("/api/v1/cameras").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].fonte").doesNotExist());
     }
 
     @Test
     void cameraDesativadaSaiDaListaMasContinuaAcessivelPorId() throws Exception {
-        mvc.perform(post("/api/v1/stations")
+        mvc.perform(post("/api/v1/stations").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON).content(ESTACAO));
-        mvc.perform(post("/api/v1/cameras")
+        mvc.perform(post("/api/v1/cameras").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON).content(CAMERA));
 
-        mvc.perform(delete("/api/v1/cameras/CAM-77")).andExpect(status().isNoContent());
+        mvc.perform(delete("/api/v1/cameras/CAM-77").session(gestor)).andExpect(status().isNoContent());
 
-        mvc.perform(get("/api/v1/cameras"))
+        mvc.perform(get("/api/v1/cameras").session(gestor))
                 .andExpect(jsonPath("$[?(@.id=='CAM-77')]").isEmpty());
-        mvc.perform(get("/api/v1/cameras/CAM-77"))
+        mvc.perform(get("/api/v1/cameras/CAM-77").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ativa").value(false));
     }
 
     @Test
     void cameraInexistenteDevolve404() throws Exception {
-        mvc.perform(get("/api/v1/cameras/CAM-99")).andExpect(status().isNotFound());
-        mvc.perform(delete("/api/v1/cameras/CAM-99")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/cameras/CAM-99").session(gestor)).andExpect(status().isNotFound());
+        mvc.perform(delete("/api/v1/cameras/CAM-99").session(gestor)).andExpect(status().isNotFound());
     }
 
     @Test
     void listaDeCamerasIncluiInativasSoComOptIn() throws Exception {
-        mvc.perform(post("/api/v1/stations")
+        mvc.perform(post("/api/v1/stations").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON).content(ESTACAO));
-        mvc.perform(post("/api/v1/cameras")
+        mvc.perform(post("/api/v1/cameras").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON).content(CAMERA));
 
-        mvc.perform(delete("/api/v1/cameras/CAM-77")).andExpect(status().isNoContent());
+        mvc.perform(delete("/api/v1/cameras/CAM-77").session(gestor)).andExpect(status().isNoContent());
 
-        mvc.perform(get("/api/v1/cameras"))
+        mvc.perform(get("/api/v1/cameras").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id=='CAM-77')]").isEmpty());
-        mvc.perform(get("/api/v1/cameras").param("incluirInativas", "false"))
+        mvc.perform(get("/api/v1/cameras").session(gestor).param("incluirInativas", "false"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id=='CAM-77')]").isEmpty());
-        mvc.perform(get("/api/v1/cameras").param("incluirInativas", "true"))
+        mvc.perform(get("/api/v1/cameras").session(gestor).param("incluirInativas", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id=='CAM-77')]").isNotEmpty());
+    }
+
+    @Test
+    void regeneraTokenEDevolveValorDiferenteDoAnterior() throws Exception {
+        String criada = mvc.perform(post("/api/v1/stations").session(gestor)
+                        .contentType(MediaType.APPLICATION_JSON).content(ESTACAO))
+                .andReturn().getResponse().getContentAsString();
+        String tokenOriginal = com.jayway.jsonpath.JsonPath.read(criada, "$.token");
+
+        mvc.perform(post("/api/v1/stations/EST-77/token/regenerate").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("EST-77"))
+                .andExpect(jsonPath("$.token").value(Matchers.not(tokenOriginal)));
+    }
+
+    @Test
+    void regenerarTokenDeEstacaoInexistenteDevolve404() throws Exception {
+        mvc.perform(post("/api/v1/stations/EST-99/token/regenerate").session(gestor))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void cadastroDeCameraNuncaExpoeApiKey() throws Exception {
+        mvc.perform(post("/api/v1/stations").session(gestor)
+                .contentType(MediaType.APPLICATION_JSON).content(ESTACAO));
+
+        mvc.perform(post("/api/v1/cameras").session(gestor)
+                        .contentType(MediaType.APPLICATION_JSON).content(CAMERA))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.apiKey").doesNotExist());
+
+        mvc.perform(get("/api/v1/cameras/CAM-77").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.apiKey").doesNotExist());
+    }
+
+    @Test
+    void regeneraApiKeyDeCameraEDevolveValorDiferenteDoAnterior() throws Exception {
+        mvc.perform(post("/api/v1/stations").session(gestor)
+                .contentType(MediaType.APPLICATION_JSON).content(ESTACAO));
+        mvc.perform(post("/api/v1/cameras").session(gestor)
+                .contentType(MediaType.APPLICATION_JSON).content(CAMERA));
+
+        String primeira = mvc.perform(post("/api/v1/cameras/CAM-77/apikey/regenerate").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("CAM-77"))
+                .andExpect(jsonPath("$.apiKey").exists())
+                .andReturn().getResponse().getContentAsString();
+        String chaveOriginal = com.jayway.jsonpath.JsonPath.read(primeira, "$.apiKey");
+
+        mvc.perform(post("/api/v1/cameras/CAM-77/apikey/regenerate").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("CAM-77"))
+                .andExpect(jsonPath("$.apiKey").value(Matchers.not(chaveOriginal)));
+    }
+
+    @Test
+    void regenerarApiKeyDeCameraInexistenteDevolve404() throws Exception {
+        mvc.perform(post("/api/v1/cameras/CAM-99/apikey/regenerate").session(gestor))
+                .andExpect(status().isNotFound());
     }
 }

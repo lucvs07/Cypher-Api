@@ -51,4 +51,14 @@ public class Camera {
     @ColumnDefault("true")
     @Column(nullable = false)
     private boolean ativa;
+
+    /**
+     * Opaco, gerado no cadastro (`TokenGenerator`). Nunca aparece em
+     * `CameraAdminResponse` (GET/create/update) — a única forma de lê-la é
+     * `POST /cameras/{id}/apikey/regenerate`, que sempre rotaciona (mesmo
+     * padrão de `Estacao.token`). Gap de provisionamento fechado pós-E4
+     * (revisado em 2026-08-25, ver spec E4 §2.3).
+     */
+    @Column(nullable = false, unique = true, length = 80)
+    private String apiKey;
 }

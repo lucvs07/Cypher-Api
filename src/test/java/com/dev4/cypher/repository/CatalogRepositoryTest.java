@@ -21,13 +21,13 @@ class CatalogRepositoryTest {
 
     @Test
     void umaEstacaoEhCobertaPorVariasCameras() {
-        estacoes.save(new Estacao("EST-01", "Esteira de montagem", "montagem", true));
+        estacoes.save(new Estacao("EST-01", "Esteira de montagem", "montagem", true, "tok-EST-01"));
         cameras.save(new Camera("CAM-01", "Frontal", "EST-01",
-                "http://127.0.0.1:8090/stream", "rtsp://cam1/stream", true));
+                "http://127.0.0.1:8090/stream", "rtsp://cam1/stream", true, "key-CAM-01"));
         cameras.save(new Camera("CAM-02", "Lateral", "EST-01",
-                "http://127.0.0.1:8091/stream", "rtsp://cam2/stream", true));
+                "http://127.0.0.1:8091/stream", "rtsp://cam2/stream", true, "key-CAM-02"));
         cameras.saveAndFlush(new Camera("CAM-03", "Expedicao", "EST-02",
-                "http://127.0.0.1:8092/stream", "0", true));
+                "http://127.0.0.1:8092/stream", "0", true, "key-CAM-03"));
 
         List<Camera> daEstacao = cameras.findByEstacaoId("EST-01");
 
@@ -37,7 +37,7 @@ class CatalogRepositoryTest {
 
     @Test
     void estacaoGuardaSetorEEstadoAtivo() {
-        estacoes.saveAndFlush(new Estacao("EST-09", "Prensa 3", "estamparia", false));
+        estacoes.saveAndFlush(new Estacao("EST-09", "Prensa 3", "estamparia", false, "tok-EST-09"));
 
         Estacao lida = estacoes.findById("EST-09").orElseThrow();
         assertThat(lida.getSetor()).isEqualTo("estamparia");
@@ -47,9 +47,9 @@ class CatalogRepositoryTest {
     @Test
     void listaApenasCamerasAtivas() {
         cameras.save(new Camera("CAM-01", "Frontal", "EST-01",
-                "http://127.0.0.1:8090/stream", "rtsp://cam1/stream", true));
+                "http://127.0.0.1:8090/stream", "rtsp://cam1/stream", true, "key-CAM-01"));
         cameras.saveAndFlush(new Camera("CAM-02", "Desativada", "EST-01",
-                "http://127.0.0.1:8091/stream", "rtsp://cam2/stream", false));
+                "http://127.0.0.1:8091/stream", "rtsp://cam2/stream", false, "key-CAM-02"));
 
         assertThat(cameras.findByAtivaTrue()).extracting(Camera::getId)
                 .containsExactly("CAM-01");
@@ -58,11 +58,11 @@ class CatalogRepositoryTest {
     @Test
     void listaCamerasAtivasDeUmaEstacao() {
         cameras.save(new Camera("CAM-01", "Frontal", "EST-01",
-                "http://127.0.0.1:8090/stream", "rtsp://a", true));
+                "http://127.0.0.1:8090/stream", "rtsp://a", true, "key-CAM-01"));
         cameras.save(new Camera("CAM-02", "Inativa", "EST-01",
-                "http://127.0.0.1:8091/stream", "rtsp://b", false));
+                "http://127.0.0.1:8091/stream", "rtsp://b", false, "key-CAM-02"));
         cameras.saveAndFlush(new Camera("CAM-03", "Outra estacao", "EST-02",
-                "http://127.0.0.1:8092/stream", "rtsp://c", true));
+                "http://127.0.0.1:8092/stream", "rtsp://c", true, "key-CAM-03"));
 
         assertThat(cameras.findByEstacaoIdAndAtivaTrue("EST-01"))
                 .extracting(Camera::getId).containsExactly("CAM-01");
@@ -71,7 +71,7 @@ class CatalogRepositoryTest {
     @Test
     void encontraCameraPelaUrlDeStream() {
         cameras.saveAndFlush(new Camera("CAM-01", "Frontal", "EST-01",
-                "http://127.0.0.1:8090/stream", "rtsp://a", true));
+                "http://127.0.0.1:8090/stream", "rtsp://a", true, "key-CAM-01"));
 
         assertThat(cameras.findByStreamUrl("http://127.0.0.1:8090/stream"))
                 .isPresent();
@@ -81,10 +81,29 @@ class CatalogRepositoryTest {
 
     @Test
     void listaApenasEstacoesAtivas() {
-        estacoes.save(new Estacao("EST-01", "Ativa", "montagem", true));
-        estacoes.saveAndFlush(new Estacao("EST-02", "Inativa", "montagem", false));
+        estacoes.save(new Estacao("EST-01", "Ativa", "montagem", true, "tok-EST-01"));
+        estacoes.saveAndFlush(new Estacao("EST-02", "Inativa", "montagem", false, "tok-EST-02"));
 
         assertThat(estacoes.findByAtivaTrue()).extracting(Estacao::getId)
                 .containsExactly("EST-01");
+    }
+
+    @Test
+    void encontraEstacaoPeloToken() {
+        estacoes.saveAndFlush(new Estacao("EST-30", "Expedicao", "logistica", true, "tok-EST-30"));
+
+        assertThat(estacoes.findByToken("tok-EST-30")).isPresent();
+        assertThat(estacoes.findByToken("tok-EST-30").orElseThrow().getId()).isEqualTo("EST-30");
+        assertThat(estacoes.findByToken("token-que-nao-existe")).isEmpty();
+    }
+
+    @Test
+    void encontraCameraPelaApiKey() {
+        cameras.saveAndFlush(new Camera("CAM-30", "Frontal", "EST-30",
+                "http://127.0.0.1:8230/stream", "rtsp://a", true, "key-CAM-30"));
+
+        assertThat(cameras.findByApiKey("key-CAM-30")).isPresent();
+        assertThat(cameras.findByApiKey("key-CAM-30").orElseThrow().getId()).isEqualTo("CAM-30");
+        assertThat(cameras.findByApiKey("chave-que-nao-existe")).isEmpty();
     }
 }

@@ -6,6 +6,7 @@ import com.dev4.cypher.model.WebhookSubscription;
 import com.dev4.cypher.repository.CameraRepository;
 import com.dev4.cypher.repository.EstacaoRepository;
 import com.dev4.cypher.repository.WebhookSubscriptionRepository;
+import com.dev4.cypher.security.TokenGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -48,7 +49,7 @@ public class CatalogSeeder implements ApplicationRunner {
         if (estacoes.count() == 0) {
             properties.getStations().forEach(cfg ->
                     estacoes.save(new Estacao(cfg.getId(), cfg.getNome(), cfg.getSetor(),
-                            cfg.isAtiva())));
+                            cfg.isAtiva(), TokenGenerator.novo("est-tok"))));
             log.info("Catalogo: {} estacao(oes) semeada(s) da configuracao",
                     properties.getStations().size());
         } else {
@@ -59,7 +60,8 @@ public class CatalogSeeder implements ApplicationRunner {
         if (cameras.count() == 0) {
             properties.getCameras().forEach(cfg ->
                     cameras.save(new Camera(cfg.getId(), cfg.getNome(), cfg.getEstacaoId(),
-                            cfg.getStreamUrl(), cfg.getFonte(), cfg.isAtiva())));
+                            cfg.getStreamUrl(), cfg.getFonte(), cfg.isAtiva(),
+                            TokenGenerator.novo("cam-key"))));
             log.info("Catalogo: {} camera(s) semeada(s) da configuracao",
                     properties.getCameras().size());
         } else {

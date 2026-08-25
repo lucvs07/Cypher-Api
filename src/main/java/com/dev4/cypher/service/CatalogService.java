@@ -3,15 +3,18 @@ package com.dev4.cypher.service;
 import com.dev4.cypher.catalog.CatalogCodes;
 import com.dev4.cypher.catalog.CatalogValidationException;
 import com.dev4.cypher.dto.CameraAdminResponse;
+import com.dev4.cypher.dto.CameraApiKeyResponse;
 import com.dev4.cypher.dto.CameraConfigResponse;
 import com.dev4.cypher.dto.CameraRequest;
 import com.dev4.cypher.dto.CameraResponse;
+import com.dev4.cypher.dto.EstacaoAdminResponse;
 import com.dev4.cypher.dto.StationRequest;
 import com.dev4.cypher.dto.StationResponse;
 import com.dev4.cypher.model.Camera;
 import com.dev4.cypher.model.Estacao;
 import com.dev4.cypher.repository.CameraRepository;
 import com.dev4.cypher.repository.EstacaoRepository;
+import com.dev4.cypher.security.TokenGenerator;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,18 +71,18 @@ public class CatalogService {
     // ------------------------------------------------------------------
 
     @Transactional
-    public StationResponse createStation(StationRequest req) {
+    public EstacaoAdminResponse createStation(StationRequest req) {
         if (estacoes.existsById(req.id())) {
             throw new CatalogValidationException(HttpStatus.CONFLICT,
                     "Estacao ja cadastrada: " + req.id());
         }
         Estacao nova = new Estacao(req.id(), req.nome(), req.setor(),
-                req.ativa() == null || req.ativa());
-        return toResponse(estacoes.saveAndFlush(nova));
+                req.ativa() == null || req.ativa(), TokenGenerator.novo("est-tok"));
+        return toAdminResponse(estacoes.saveAndFlush(nova));
     }
 
     @Transactional
-    public Optional<StationResponse> updateStation(String id, StationRequest req) {
+    public Optional<EstacaoAdminResponse> updateStation(String id, StationRequest req) {
         exigirMesmoCodigo(id, req.id(), "estacao");
         return estacoes.findById(id).map(estacao -> {
             estacao.setNome(req.nome());
@@ -89,7 +92,16 @@ public class CatalogService {
             if (req.ativa() != null) {
                 estacao.setAtiva(req.ativa());
             }
-            return toResponse(estacoes.saveAndFlush(estacao));
+            return toAdminResponse(estacoes.saveAndFlush(estacao));
+        });
+    }
+
+    /** Rotaciona o token sem recriar a estação (spec E4 §2.4) — GESTOR-only. */
+    @Transactional
+    public Optional<EstacaoAdminResponse> regenerateToken(String id) {
+        return estacoes.findById(id).map(estacao -> {
+            estacao.setToken(TokenGenerator.novo("est-tok"));
+            return toAdminResponse(estacoes.saveAndFlush(estacao));
         });
     }
 
@@ -124,7 +136,8 @@ public class CatalogService {
         CatalogCodes.portaDe(req.streamUrl());
 
         Camera nova = new Camera(req.id(), req.nome(), req.estacaoId(),
-                req.streamUrl(), req.fonte(), req.ativa() == null || req.ativa());
+                req.streamUrl(), req.fonte(), req.ativa() == null || req.ativa(),
+                TokenGenerator.novo("cam-key"));
         return toAdminResponse(cameras.saveAndFlush(nova));
     }
 
@@ -144,6 +157,19 @@ public class CatalogService {
                 camera.setAtiva(req.ativa());
             }
             return toAdminResponse(cameras.saveAndFlush(camera));
+        });
+    }
+
+    /**
+     * Rotaciona a apiKey sem recriar a câmera — mesmo padrão de {@code
+     * regenerateToken} para estação (spec E4 §2.3/§2.4, gap de
+     * provisionamento fechado pós-E4). GESTOR-only.
+     */
+    @Transactional
+    public Optional<CameraApiKeyResponse> regenerateApiKey(String id) {
+        return cameras.findById(id).map(camera -> {
+            camera.setApiKey(TokenGenerator.novo("cam-key"));
+            return toApiKeyResponse(cameras.saveAndFlush(camera));
         });
     }
 
@@ -232,6 +258,10 @@ public class CatalogService {
                         .map(this::toResponse).toList());
     }
 
+    private EstacaoAdminResponse toAdminResponse(Estacao e) {
+        return new EstacaoAdminResponse(e.getId(), e.getNome(), e.getSetor(), e.isAtiva(), e.getToken());
+    }
+
     private CameraResponse toResponse(Camera c) {
         return new CameraResponse(c.getId(), c.getNome(), c.getEstacaoId(), c.getStreamUrl());
     }
@@ -239,5 +269,9 @@ public class CatalogService {
     private CameraAdminResponse toAdminResponse(Camera c) {
         return new CameraAdminResponse(c.getId(), c.getNome(), c.getEstacaoId(),
                 c.getStreamUrl(), c.getFonte(), c.isAtiva());
+    }
+
+    private CameraApiKeyResponse toApiKeyResponse(Camera c) {
+        return new CameraApiKeyResponse(c.getId(), c.getApiKey());
     }
 }
