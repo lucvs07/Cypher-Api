@@ -6,8 +6,11 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpMethod;
 import org.springframework.lang.NonNull;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -40,6 +43,24 @@ public class CypherKeyAuthenticationFilter extends OncePerRequestFilter {
 
     public static final String HEADER = "X-Cypher-Key";
 
+    /**
+     * Casadores das rotas de ingestão, resolvidos sobre o path DECODIFICADO
+     * que o Spring MVC de fato usa para rotear (via PathPatternParser),
+     * não sobre {@code request.getRequestURI()} bruto. Isso fecha o bypass em
+     * que {@code POST /api/v1/incident%73} (percent-encoding de "incidents")
+     * é roteado pelo Spring para o mesmo handler de criação de incidente, mas
+     * uma comparação de string crua contra o URI não decodificado não bate —
+     * deixando a rota passar sem exigir o header. {@code PathPatternRequestMatcher}
+     * decodifica/normaliza o path antes de casar, então resolve o mesmo
+     * request da mesma forma que o {@code DispatcherServlet} vai rotear.
+     */
+    private static final RequestMatcher CRIAR_INCIDENTE =
+            PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/api/v1/incidents");
+
+    /** PATCH /api/v1/incidents/{incidentKey} — exatamente um segmento, não qualquer sub-path. */
+    private static final RequestMatcher FECHAR_INCIDENTE =
+            PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.PATCH, "/api/v1/incidents/{incidentKey}");
+
     private final CameraRepository cameras;
 
     public CypherKeyAuthenticationFilter(CameraRepository cameras) {
@@ -65,11 +86,6 @@ public class CypherKeyAuthenticationFilter extends OncePerRequestFilter {
 
     /** POST /api/v1/incidents (criação) ou PATCH /api/v1/incidents/{incidentKey} (fechamento). */
     private boolean isRotaDeIngestao(HttpServletRequest request) {
-        String metodo = request.getMethod();
-        String caminho = request.getRequestURI();
-        if ("POST".equals(metodo) && "/api/v1/incidents".equals(caminho)) {
-            return true;
-        }
-        return "PATCH".equals(metodo) && caminho.startsWith("/api/v1/incidents/");
+        return CRIAR_INCIDENTE.matches(request) || FECHAR_INCIDENTE.matches(request);
     }
 }

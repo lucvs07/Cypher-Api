@@ -94,6 +94,46 @@ class IncidentIngestionApiTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    /**
+     * Fix Round 1 — regressão do bypass CRITICAL encontrado na revisão da
+     * Tarefa 13: "/api/v1/incident%73" é "/api/v1/incidents" com o 's' final
+     * percent-encoded. O Spring MVC decodifica e roteia para o MESMO
+     * handler de criação de incidente (prova de ponta a ponta, contexto
+     * Spring real) — mas o filtro antigo comparava contra
+     * request.getRequestURI() bruto e não reconhecia isso como rota de
+     * ingestão, deixando passar sem exigir X-Cypher-Key. Usa
+     * MockMvcRequestBuilders.request(...) com um java.net.URI construído à
+     * mão: o builder de conveniência `post(...)` reencodaria '%' para '%25'
+     * e mascararia o teste.
+     */
+    @Test
+    void ingestaoComPathPercentEncodedSemChaveDevolve401() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .request(org.springframework.http.HttpMethod.POST,
+                                java.net.URI.create("/api/v1/incident%73"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(QUEDA.replace("run-api", "run-percent-encoded")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    /**
+     * Confirma a outra metade do achado: o mesmo path percent-encoded, COM
+     * a chave, é roteado pelo Spring MVC para o mesmo handler de criação
+     * (201) — prova de que "/api/v1/incident%73" e "/api/v1/incidents" são
+     * de fato a mesma rota de ingestão aos olhos do dispatcher, não só do
+     * filtro.
+     */
+    @Test
+    void ingestaoComPathPercentEncodedEChaveValidaCria201() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .request(org.springframework.http.HttpMethod.POST,
+                                java.net.URI.create("/api/v1/incident%73"))
+                        .header(HEADER, CHAVE)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(QUEDA.replace("run-api", "run-percent-encoded-valido")))
+                .andExpect(status().isCreated());
+    }
+
     @Test
     void ingestaoRepetidaDevolve200ComOMesmoId() throws Exception {
         String corpo = QUEDA.replace("run-api", "run-retry");

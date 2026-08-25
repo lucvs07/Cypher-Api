@@ -136,6 +136,61 @@ class CypherKeyAuthenticationFilterTest {
     }
 
     @Test
+    void ingestaoPostComPathPercentEncodedTambemDevolve401() throws Exception {
+        // Bypass real: "/api/v1/incident%73" é o mesmo path que
+        // "/api/v1/incidents" depois de decodificado — e é assim que o
+        // Spring MVC roteia a requisição para o mesmo handler de criação de
+        // incidente. Uma comparação de string contra request.getRequestURI()
+        // (bruto, não decodificado) não bate com essa variante e deixava a
+        // rota passar sem exigir X-Cypher-Key. isRotaDeIngestao precisa
+        // casar no path decodificado, exatamente como o Spring MVC roteia.
+        CypherKeyAuthenticationFilter filtro = new CypherKeyAuthenticationFilter(cameras);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/incident%73");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        boolean[] proximoFiltroChamado = {false};
+        FilterChain chain = (req, res) -> proximoFiltroChamado[0] = true;
+
+        filtro.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(proximoFiltroChamado[0]).isFalse();
+    }
+
+    @Test
+    void ingestaoPatchComPathPercentEncodedTambemDevolve401() throws Exception {
+        CypherKeyAuthenticationFilter filtro = new CypherKeyAuthenticationFilter(cameras);
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "PATCH", "/api/v1/incident%73/CAM-01:run:track:20260810T000000000Z");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        boolean[] proximoFiltroChamado = {false};
+        FilterChain chain = (req, res) -> proximoFiltroChamado[0] = true;
+
+        filtro.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(proximoFiltroChamado[0]).isFalse();
+    }
+
+    @Test
+    void patchComSubPathAlemDoIncidentKeyNaoEIngestaoENaoExigeChave() throws Exception {
+        // Achado Minor: só PATCH /api/v1/incidents/{incidentKey} (um único
+        // segmento) é rota de ingestão — qualquer coisa aninhada abaixo
+        // disso não é, e o antigo startsWith("/api/v1/incidents/") era
+        // largo demais.
+        CypherKeyAuthenticationFilter filtro = new CypherKeyAuthenticationFilter(cameras);
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "PATCH", "/api/v1/incidents/CAM-01:run:track:20260810T000000000Z/extra");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        boolean[] proximoFiltroChamado = {false};
+        FilterChain chain = (req, res) -> proximoFiltroChamado[0] = true;
+
+        filtro.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+        assertThat(proximoFiltroChamado[0]).isTrue();
+    }
+
+    @Test
     void statusDeIncidenteAcaoDoOperadorNaoEIngestaoENaoExigeChave() throws Exception {
         // PUT .../status e o reconhecimento humano (E3), nao a ingestao do
         // pipeline — nunca deve exigir X-Cypher-Key.
