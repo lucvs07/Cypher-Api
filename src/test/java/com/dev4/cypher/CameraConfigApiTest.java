@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
+import static com.dev4.cypher.security.CypherKeyAuthenticationFilter.HEADER;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -100,5 +101,20 @@ class CameraConfigApiTest {
         mvc.perform(get("/api/v1/cameras/CAM-55/config").session(gestor))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.erro").value(Matchers.containsString("EST-55")));
+    }
+
+    @Test
+    void pipelineComChaveValidaAcessaConfigSemSessao() throws Exception {
+        String apiKey = cameras.findById("CAM-55").orElseThrow().getApiKey();
+
+        mvc.perform(get("/api/v1/cameras/CAM-55/config").header(HEADER, apiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.codigo").value("CAM-55"));
+    }
+
+    @Test
+    void pipelineComChaveInvalidaDevolve401() throws Exception {
+        mvc.perform(get("/api/v1/cameras/CAM-55/config").header(HEADER, "chave-que-nao-existe"))
+                .andExpect(status().isUnauthorized());
     }
 }
