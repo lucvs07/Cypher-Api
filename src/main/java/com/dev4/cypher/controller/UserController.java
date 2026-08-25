@@ -38,16 +38,16 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.criar(req));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<UsuarioResponse> update(@PathVariable Long id, @Valid @RequestBody UserRequest req) {
-        return service.atualizar(id, req)
+    @PutMapping("/{username}")
+    public ResponseEntity<UsuarioResponse> update(@PathVariable String username, @Valid @RequestBody UserRequest req) {
+        return service.atualizar(username, req)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        return service.remover(id)
+    @DeleteMapping("/{username}")
+    public ResponseEntity<Void> delete(@PathVariable String username) {
+        return service.remover(username)
                 ? ResponseEntity.noContent().build()
                 : ResponseEntity.notFound().build();
     }

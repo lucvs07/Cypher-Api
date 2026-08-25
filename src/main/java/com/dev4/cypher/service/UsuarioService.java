@@ -46,9 +46,9 @@ public class UsuarioService {
     }
 
     @Transactional
-    public Optional<UsuarioResponse> atualizar(Long id, UserRequest req) {
+    public Optional<UsuarioResponse> atualizar(String username, UserRequest req) {
         exigirPapelGestor(req.papel());
-        return usuarios.findById(id).map(usuario -> {
+        return usuarios.findByUsername(username).map(usuario -> {
             if (!usuario.getUsername().equals(req.username()) && usuarios.existsByUsername(req.username())) {
                 throw new CatalogValidationException(HttpStatus.CONFLICT,
                         "Usuario ja cadastrado: " + req.username());
@@ -63,11 +63,11 @@ public class UsuarioService {
     }
 
     @Transactional
-    public boolean remover(Long id) {
-        if (!usuarios.existsById(id)) {
+    public boolean remover(String username) {
+        if (!usuarios.existsByUsername(username)) {
             return false;
         }
-        usuarios.deleteById(id);
+        usuarios.deleteByUsername(username);
         return true;
     }
 

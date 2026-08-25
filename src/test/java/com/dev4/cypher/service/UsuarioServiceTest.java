@@ -75,44 +75,45 @@ class UsuarioServiceTest {
 
     @Test
     void editaUsernameSemRedefinirSenha() {
-        UsuarioResponse criado = service.criar(gestor2());
-        String hashOriginal = usuarios.findById(criado.id()).orElseThrow().getPasswordHash();
+        service.criar(gestor2());
+        String hashOriginal = usuarios.findByUsername("gestor2").orElseThrow().getPasswordHash();
 
-        Optional<UsuarioResponse> editado = service.atualizar(criado.id(),
+        Optional<UsuarioResponse> editado = service.atualizar("gestor2",
                 new UserRequest("gestor2-renomeado", "GESTOR", null));
 
         assertThat(editado).isPresent();
         assertThat(editado.get().username()).isEqualTo("gestor2-renomeado");
-        assertThat(usuarios.findById(criado.id()).orElseThrow().getPasswordHash()).isEqualTo(hashOriginal);
+        assertThat(usuarios.findByUsername("gestor2-renomeado").orElseThrow().getPasswordHash())
+                .isEqualTo(hashOriginal);
     }
 
     @Test
     void editaRedefinindoSenha() {
-        UsuarioResponse criado = service.criar(gestor2());
-        String hashOriginal = usuarios.findById(criado.id()).orElseThrow().getPasswordHash();
+        service.criar(gestor2());
+        String hashOriginal = usuarios.findByUsername("gestor2").orElseThrow().getPasswordHash();
 
-        service.atualizar(criado.id(), new UserRequest("gestor2", "GESTOR", "novaSenha456"));
+        service.atualizar("gestor2", new UserRequest("gestor2", "GESTOR", "novaSenha456"));
 
-        String hashNovo = usuarios.findById(criado.id()).orElseThrow().getPasswordHash();
+        String hashNovo = usuarios.findByUsername("gestor2").orElseThrow().getPasswordHash();
         assertThat(hashNovo).isNotEqualTo(hashOriginal);
         assertThat(encoder.matches("novaSenha456", hashNovo)).isTrue();
     }
 
     @Test
     void editarInexistenteDevolveVazio() {
-        assertThat(service.atualizar(999L, new UserRequest("x", "GESTOR", null))).isEmpty();
+        assertThat(service.atualizar("nao-existe", new UserRequest("x", "GESTOR", null))).isEmpty();
     }
 
     @Test
     void removeUsuario() {
-        UsuarioResponse criado = service.criar(gestor2());
+        service.criar(gestor2());
 
-        assertThat(service.remover(criado.id())).isTrue();
-        assertThat(usuarios.findById(criado.id())).isEmpty();
+        assertThat(service.remover("gestor2")).isTrue();
+        assertThat(usuarios.findByUsername("gestor2")).isEmpty();
     }
 
     @Test
     void removerInexistenteDevolveFalso() {
-        assertThat(service.remover(999L)).isFalse();
+        assertThat(service.remover("nao-existe")).isFalse();
     }
 }

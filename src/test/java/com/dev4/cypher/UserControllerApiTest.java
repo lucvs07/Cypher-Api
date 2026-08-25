@@ -85,12 +85,10 @@ class UserControllerApiTest {
 
     @Test
     void editaUsernameSemInformarSenha() throws Exception {
-        String criado = mvc.perform(post("/api/v1/users").session(gestor)
-                        .contentType(MediaType.APPLICATION_JSON).content(USUARIO))
-                .andReturn().getResponse().getContentAsString();
-        Integer id = com.jayway.jsonpath.JsonPath.read(criado, "$.id");
+        mvc.perform(post("/api/v1/users").session(gestor)
+                .contentType(MediaType.APPLICATION_JSON).content(USUARIO));
 
-        mvc.perform(put("/api/v1/users/{id}", id).session(gestor)
+        mvc.perform(put("/api/v1/users/{username}", "gestor2").session(gestor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\": \"gestor2-renomeado\", \"papel\": \"GESTOR\"}"))
                 .andExpect(status().isOk())
@@ -99,19 +97,18 @@ class UserControllerApiTest {
 
     @Test
     void removeUsuarioEDevolve204() throws Exception {
-        String criado = mvc.perform(post("/api/v1/users").session(gestor)
-                        .contentType(MediaType.APPLICATION_JSON).content(USUARIO))
-                .andReturn().getResponse().getContentAsString();
-        Integer id = com.jayway.jsonpath.JsonPath.read(criado, "$.id");
+        mvc.perform(post("/api/v1/users").session(gestor)
+                .contentType(MediaType.APPLICATION_JSON).content(USUARIO));
 
-        mvc.perform(delete("/api/v1/users/{id}", id).session(gestor)).andExpect(status().isNoContent());
+        mvc.perform(delete("/api/v1/users/{username}", "gestor2").session(gestor))
+                .andExpect(status().isNoContent());
 
         mvc.perform(get("/api/v1/users").session(gestor))
-                .andExpect(jsonPath("$[?(@.id==" + id + ")]").isEmpty());
+                .andExpect(jsonPath("$[?(@.username=='gestor2')]").isEmpty());
     }
 
     @Test
     void removerInexistenteDevolve404() throws Exception {
-        mvc.perform(delete("/api/v1/users/999999").session(gestor)).andExpect(status().isNotFound());
+        mvc.perform(delete("/api/v1/users/nao-existe").session(gestor)).andExpect(status().isNotFound());
     }
 }
