@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 /**
  * Setup de execução única do gestor mestre (spec E4 §2.5) — substitui o seed
  * estático de `application.yaml` descartado na revisão de design. `POST
@@ -65,10 +67,10 @@ public class SetupController {
 
     @PostMapping
     @Transactional
-    public ResponseEntity<AuthResponse> setup(@Valid @RequestBody SetupRequest req,
-                                              HttpServletRequest request, HttpServletResponse response) {
+    public ResponseEntity<?> setup(@Valid @RequestBody SetupRequest req,
+                                   HttpServletRequest request, HttpServletResponse response) {
         if (usuarios.count() > 0) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("erro", "Setup ja concluido"));
         }
         Usuario gestor = usuarios.saveAndFlush(
                 new Usuario(null, req.username(), encoder.encode(req.password())));

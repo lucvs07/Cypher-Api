@@ -98,7 +98,8 @@ class AuthControllerApiTest {
         mvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\": \"%s\", \"password\": \"errada\"}".formatted(GESTOR_USERNAME)))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.erro").exists());
     }
 
     @Test
@@ -106,7 +107,8 @@ class AuthControllerApiTest {
         mvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\": \"ninguem\", \"password\": \"x\"}"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.erro").exists());
     }
 
     @Test
@@ -145,7 +147,8 @@ class AuthControllerApiTest {
         mvc.perform(post("/api/v1/auth/login-estacao")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"token\": \"%s\"}".formatted(token)))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.erro").exists());
     }
 
     @Test
@@ -153,7 +156,8 @@ class AuthControllerApiTest {
         mvc.perform(post("/api/v1/auth/login-estacao")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"token\": \"token-que-nao-existe\"}"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.erro").exists());
     }
 
     @Test

@@ -25,6 +25,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 /** Login/logout/quem-sou-eu para os dois papéis autenticados por sessão (spec E4 §2.2). */
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -44,22 +46,24 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest req,
-                                              HttpServletRequest request, HttpServletResponse response) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req,
+                                   HttpServletRequest request, HttpServletResponse response) {
         Usuario usuario = usuarios.findByUsername(req.username()).orElse(null);
         if (usuario == null || !encoder.matches(req.password(), usuario.getPasswordHash())) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("erro", "Usuario ou senha invalidos"));
         }
         sessionAuthenticator.autenticar(new GestorAuthentication(usuario.getUsername()), request, response);
         return ResponseEntity.ok(AuthResponse.gestor(usuario.getUsername()));
     }
 
     @PostMapping("/login-estacao")
-    public ResponseEntity<AuthResponse> loginEstacao(@Valid @RequestBody LoginEstacaoRequest req,
-                                                      HttpServletRequest request, HttpServletResponse response) {
+    public ResponseEntity<?> loginEstacao(@Valid @RequestBody LoginEstacaoRequest req,
+                                          HttpServletRequest request, HttpServletResponse response) {
         Estacao estacao = estacoes.findByToken(req.token()).orElse(null);
         if (estacao == null || !estacao.isAtiva()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("erro", "Token de estacao invalido ou inativo"));
         }
         sessionAuthenticator.autenticar(new OperadorAuthentication(estacao.getId()), request, response);
         return ResponseEntity.ok(AuthResponse.operador(estacao.getId()));
