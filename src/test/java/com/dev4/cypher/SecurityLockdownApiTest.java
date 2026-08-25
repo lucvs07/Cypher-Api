@@ -162,6 +162,26 @@ class SecurityLockdownApiTest {
     }
 
     @Test
+    void regenerarApiKeyDeCameraExigeGestorNaoOperador() throws Exception {
+        MockHttpSession gestor = loginGestorBootstrap(mvc);
+        mvc.perform(post("/api/v1/stations").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EST-94\", \"nome\": \"A\", \"setor\": \"s\"}"));
+        mvc.perform(post("/api/v1/cameras").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"CAM-94\", \"nome\": \"C\", \"estacaoId\": \"EST-94\", "
+                        + "\"streamUrl\": \"http://127.0.0.1:8294/stream\", \"fonte\": \"f\"}"));
+        String token = com.jayway.jsonpath.JsonPath.read(
+                mvc.perform(post("/api/v1/stations/EST-94/token/regenerate").session(gestor))
+                        .andReturn().getResponse().getContentAsString(),
+                "$.token");
+        MockHttpSession operador = loginOperador(mvc, token);
+
+        mvc.perform(post("/api/v1/cameras/CAM-94/apikey/regenerate").session(gestor))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/cameras/CAM-94/apikey/regenerate").session(operador))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void cameraConfigSemChaveNemSessaoDevolve401() throws Exception {
         // A propria chave nao tem superficie de leitura (Tarefa 6) — este teste
         // só confirma que, sem sessão E sem X-Cypher-Key, a rota devolve 401;

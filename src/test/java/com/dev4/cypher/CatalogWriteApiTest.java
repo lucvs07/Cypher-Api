@@ -228,4 +228,45 @@ class CatalogWriteApiTest {
         mvc.perform(post("/api/v1/stations/EST-99/token/regenerate").session(gestor))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void cadastroDeCameraNuncaExpoeApiKey() throws Exception {
+        mvc.perform(post("/api/v1/stations").session(gestor)
+                .contentType(MediaType.APPLICATION_JSON).content(ESTACAO));
+
+        mvc.perform(post("/api/v1/cameras").session(gestor)
+                        .contentType(MediaType.APPLICATION_JSON).content(CAMERA))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.apiKey").doesNotExist());
+
+        mvc.perform(get("/api/v1/cameras/CAM-77").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.apiKey").doesNotExist());
+    }
+
+    @Test
+    void regeneraApiKeyDeCameraEDevolveValorDiferenteDoAnterior() throws Exception {
+        mvc.perform(post("/api/v1/stations").session(gestor)
+                .contentType(MediaType.APPLICATION_JSON).content(ESTACAO));
+        mvc.perform(post("/api/v1/cameras").session(gestor)
+                .contentType(MediaType.APPLICATION_JSON).content(CAMERA));
+
+        String primeira = mvc.perform(post("/api/v1/cameras/CAM-77/apikey/regenerate").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("CAM-77"))
+                .andExpect(jsonPath("$.apiKey").exists())
+                .andReturn().getResponse().getContentAsString();
+        String chaveOriginal = com.jayway.jsonpath.JsonPath.read(primeira, "$.apiKey");
+
+        mvc.perform(post("/api/v1/cameras/CAM-77/apikey/regenerate").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("CAM-77"))
+                .andExpect(jsonPath("$.apiKey").value(Matchers.not(chaveOriginal)));
+    }
+
+    @Test
+    void regenerarApiKeyDeCameraInexistenteDevolve404() throws Exception {
+        mvc.perform(post("/api/v1/cameras/CAM-99/apikey/regenerate").session(gestor))
+                .andExpect(status().isNotFound());
+    }
 }

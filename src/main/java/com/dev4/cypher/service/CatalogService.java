@@ -3,6 +3,7 @@ package com.dev4.cypher.service;
 import com.dev4.cypher.catalog.CatalogCodes;
 import com.dev4.cypher.catalog.CatalogValidationException;
 import com.dev4.cypher.dto.CameraAdminResponse;
+import com.dev4.cypher.dto.CameraApiKeyResponse;
 import com.dev4.cypher.dto.CameraConfigResponse;
 import com.dev4.cypher.dto.CameraRequest;
 import com.dev4.cypher.dto.CameraResponse;
@@ -159,6 +160,19 @@ public class CatalogService {
         });
     }
 
+    /**
+     * Rotaciona a apiKey sem recriar a câmera — mesmo padrão de {@code
+     * regenerateToken} para estação (spec E4 §2.3/§2.4, gap de
+     * provisionamento fechado pós-E4). GESTOR-only.
+     */
+    @Transactional
+    public Optional<CameraApiKeyResponse> regenerateApiKey(String id) {
+        return cameras.findById(id).map(camera -> {
+            camera.setApiKey(TokenGenerator.novo("cam-key"));
+            return toApiKeyResponse(cameras.saveAndFlush(camera));
+        });
+    }
+
     @Transactional
     public boolean deactivateCamera(String id) {
         return cameras.findById(id).map(camera -> {
@@ -255,5 +269,9 @@ public class CatalogService {
     private CameraAdminResponse toAdminResponse(Camera c) {
         return new CameraAdminResponse(c.getId(), c.getNome(), c.getEstacaoId(),
                 c.getStreamUrl(), c.getFonte(), c.isAtiva());
+    }
+
+    private CameraApiKeyResponse toApiKeyResponse(Camera c) {
+        return new CameraApiKeyResponse(c.getId(), c.getApiKey());
     }
 }

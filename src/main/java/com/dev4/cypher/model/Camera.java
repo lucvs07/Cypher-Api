@@ -53,10 +53,11 @@ public class Camera {
     private boolean ativa;
 
     /**
-     * Opaco, gerado no cadastro (`TokenGenerator`). Ao contrário de
-     * `Estacao.token`, não tem nenhuma superfície de leitura nesta entrega —
-     * nem em `CameraAdminResponse`, nem endpoint de regenerate (spec E4 §2.3,
-     * assimetria deliberada — ver Self-Review).
+     * Opaco, gerado no cadastro (`TokenGenerator`). Nunca aparece em
+     * `CameraAdminResponse` (GET/create/update) — a única forma de lê-la é
+     * `POST /cameras/{id}/apikey/regenerate`, que sempre rotaciona (mesmo
+     * padrão de `Estacao.token`). Gap de provisionamento fechado pós-E4
+     * (revisado em 2026-08-25, ver spec E4 §2.3).
      */
     @Column(nullable = false, unique = true, length = 80)
     private String apiKey;

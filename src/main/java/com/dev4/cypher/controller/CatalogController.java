@@ -1,6 +1,7 @@
 package com.dev4.cypher.controller;
 
 import com.dev4.cypher.dto.CameraAdminResponse;
+import com.dev4.cypher.dto.CameraApiKeyResponse;
 import com.dev4.cypher.dto.CameraConfigResponse;
 import com.dev4.cypher.dto.CameraRequest;
 import com.dev4.cypher.dto.CameraResponse;
@@ -104,6 +105,14 @@ public class CatalogController {
         return service.deactivateCamera(id)
                 ? ResponseEntity.noContent().build()
                 : ResponseEntity.notFound().build();
+    }
+
+    /** Rotaciona a apiKey da câmera; único jeito de lê-la (spec E4 §2.3, gap fechado pós-E4). */
+    @PostMapping("/cameras/{id}/apikey/regenerate")
+    public ResponseEntity<CameraApiKeyResponse> regenerateCameraApiKey(@PathVariable String id) {
+        return service.regenerateApiKey(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     /** Superfície de máquina: consumida pelo pipeline no boot. */
