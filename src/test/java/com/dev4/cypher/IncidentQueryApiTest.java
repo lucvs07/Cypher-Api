@@ -60,23 +60,34 @@ class IncidentQueryApiTest {
                 """.formatted(key, camera, tipo, severidade, instante);
     }
 
+    private static final String CHAVE_CAM01 = "chave-ingestao-cam01";
+    private static final String CHAVE_CAM02 = "chave-ingestao-cam02";
+
     @BeforeEach
     void semear() throws Exception {
         gestor = loginGestorBootstrap(mvc);
-        if (cameras.findById("CAM-INGESTAO-TESTE").isEmpty()) {
-            cameras.saveAndFlush(new Camera("CAM-INGESTAO-TESTE", "Camera de teste",
-                    "EST-INGESTAO-TESTE", "http://127.0.0.1:8999/stream", "f", true, "chave-ingestao-teste"));
+        // Duas câmeras reais — cada uma com a PRÓPRIA chave — em vez de uma
+        // única câmera fictícia "reaproveitada": achado de segurança da
+        // revisão final trava a chave por câmera, então cada incidente
+        // precisa ser ingerido com a chave da câmera que ele diz ser.
+        if (cameras.findById("CAM-Q1").isEmpty()) {
+            cameras.saveAndFlush(new Camera("CAM-Q1", "Camera de teste 1",
+                    "EST-INGESTAO-TESTE", "http://127.0.0.1:8999/stream", "f", true, CHAVE_CAM01));
+        }
+        if (cameras.findById("CAM-Q2").isEmpty()) {
+            cameras.saveAndFlush(new Camera("CAM-Q2", "Camera de teste 2",
+                    "EST-INGESTAO-TESTE", "http://127.0.0.1:8998/stream", "f", true, CHAVE_CAM02));
         }
         repository.deleteAll();
-        mvc.perform(post("/api/v1/incidents").header(HEADER, "chave-ingestao-teste")
+        mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE_CAM01)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(incidente("q1", "CAM-01", 4, "FALL_RISK", "2026-08-10T08:00:00-03:00")));
-        mvc.perform(post("/api/v1/incidents").header(HEADER, "chave-ingestao-teste")
+                .content(incidente("q1", "CAM-Q1", 4, "FALL_RISK", "2026-08-10T08:00:00-03:00")));
+        mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE_CAM02)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(incidente("q2", "CAM-02", 2, "ERGONOMIC_RISK", "2026-08-10T09:00:00-03:00")));
-        mvc.perform(post("/api/v1/incidents").header(HEADER, "chave-ingestao-teste")
+                .content(incidente("q2", "CAM-Q2", 2, "ERGONOMIC_RISK", "2026-08-10T09:00:00-03:00")));
+        mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE_CAM01)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(incidente("q3", "CAM-01", 3, "ZONE_VIOLATION", "2026-08-10T10:00:00-03:00")));
+                .content(incidente("q3", "CAM-Q1", 3, "ZONE_VIOLATION", "2026-08-10T10:00:00-03:00")));
     }
 
     @Test
@@ -89,7 +100,7 @@ class IncidentQueryApiTest {
 
     @Test
     void filtraPorCamera() throws Exception {
-        mvc.perform(get("/api/v1/incidents").param("camera", "CAM-01").session(gestor))
+        mvc.perform(get("/api/v1/incidents").param("camera", "CAM-Q1").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(2));
     }
@@ -119,7 +130,7 @@ class IncidentQueryApiTest {
 
     @Test
     void operadorReconheceIncidente() throws Exception {
-        String lista = mvc.perform(get("/api/v1/incidents").param("camera", "CAM-02").session(gestor))
+        String lista = mvc.perform(get("/api/v1/incidents").param("camera", "CAM-Q2").session(gestor))
                 .andReturn().getResponse().getContentAsString();
         Integer id = com.jayway.jsonpath.JsonPath.read(lista, "$.content[0].id");
 
@@ -140,14 +151,14 @@ class IncidentQueryApiTest {
 
     @Test
     void buscaIncidentePorId() throws Exception {
-        String lista = mvc.perform(get("/api/v1/incidents").param("camera", "CAM-01").session(gestor))
+        String lista = mvc.perform(get("/api/v1/incidents").param("camera", "CAM-Q1").session(gestor))
                 .andReturn().getResponse().getContentAsString();
         Integer id = com.jayway.jsonpath.JsonPath.read(lista, "$.content[0].id");
 
         mvc.perform(get("/api/v1/incidents/{id}", id).session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id))
-                .andExpect(jsonPath("$.cameraId").value("CAM-01"));
+                .andExpect(jsonPath("$.cameraId").value("CAM-Q1"));
     }
 
     @Test

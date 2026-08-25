@@ -7,6 +7,7 @@ import com.dev4.cypher.dto.StatusRequest;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.repository.CameraRepository;
 import com.dev4.cypher.security.OperadorAuthentication;
+import com.dev4.cypher.security.PipelineAuthentication;
 import com.dev4.cypher.service.IncidentService;
 import com.dev4.cypher.sse.IncidentSseService;
 import jakarta.validation.Valid;
@@ -60,6 +61,9 @@ public class IncidentController {
      */
     @PostMapping
     public ResponseEntity<IncidentResponse> ingest(@Valid @RequestBody IncidentRequest req) {
+        if (chaveDeOutraCamera(req.cameraId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         IncidentService.IngestResult resultado = service.ingest(req);
         HttpStatus status = resultado.created() ? HttpStatus.CREATED : HttpStatus.OK;
         return ResponseEntity.status(status).body(resultado.incident());
@@ -69,6 +73,10 @@ public class IncidentController {
     @PatchMapping("/{incidentKey}")
     public ResponseEntity<IncidentResponse> close(@PathVariable String incidentKey,
                                                   @Valid @RequestBody IncidentCloseRequest req) {
+        Optional<IncidentResponse> atual = service.findByIncidentKey(incidentKey);
+        if (atual.isPresent() && chaveDeOutraCamera(atual.get().cameraId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return service.close(incidentKey, req)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
@@ -137,5 +145,19 @@ public class IncidentController {
         return cameras.findById(cameraId)
                 .map(c -> !c.getEstacaoId().equals(operador.getEstacaoId()))
                 .orElse(true);
+    }
+
+    /**
+     * Trava a chave de ingestão por câmera (spec E4 §2.3/achado de segurança
+     * da revisão final): uma chave X-Cypher-Key válida só pode agir sobre
+     * incidentes DA PRÓPRIA câmera — nunca de qualquer outra. Só se aplica
+     * quando o request está autenticado via {@link PipelineAuthentication};
+     * sessão GESTOR/OPERADOR (ou anônimo, onde a rota é permitAll) não é
+     * afetada por esta checagem.
+     */
+    private boolean chaveDeOutraCamera(String cameraIdDoAlvo) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth instanceof PipelineAuthentication pipeline
+                && !pipeline.getCameraId().equals(cameraIdDoAlvo);
     }
 }

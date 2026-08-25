@@ -1,5 +1,9 @@
 package com.dev4.cypher;
 
+import com.dev4.cypher.model.Alerta;
+import com.dev4.cypher.model.AlertaNivel;
+import com.dev4.cypher.model.AlertaStatus;
+import com.dev4.cypher.model.AlertaTipo;
 import com.dev4.cypher.repository.AlertaRepository;
 import com.dev4.cypher.repository.CameraRepository;
 import com.dev4.cypher.repository.EstacaoRepository;
@@ -61,28 +65,53 @@ class IncidentOperatorScopeApiTest {
                 .content("{\"id\": \"CAM-92\", \"nome\": \"C2\", \"estacaoId\": \"EST-92\", "
                         + "\"streamUrl\": \"http://127.0.0.1:8292/stream\", \"fonte\": \"f\"}"));
 
-        String chave = cameras.findById("CAM-91").orElseThrow().getApiKey();
+        String chaveCam91 = cameras.findById("CAM-91").orElseThrow().getApiKey();
+        String chaveCam92 = cameras.findById("CAM-92").orElseThrow().getApiKey();
 
-        String r1 = mvc.perform(post("/api/v1/incidents").header(HEADER, chave)
+        // Cada ingestão usa a chave DA PRÓPRIA câmera (achado de segurança da
+        // revisão final: uma chave só pode agir sobre a câmera a que pertence).
+        String r1 = mvc.perform(post("/api/v1/incidents").header(HEADER, chaveCam91)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(incidente("op1", "CAM-91")))
                 .andReturn().getResponse().getContentAsString();
         idIncidenteEst01 = ((Number) com.jayway.jsonpath.JsonPath.read(r1, "$.id")).longValue();
 
-        String r2 = mvc.perform(post("/api/v1/incidents").header(HEADER, chave)
+        String r2 = mvc.perform(post("/api/v1/incidents").header(HEADER, chaveCam92)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(incidente("op2", "CAM-92")))
                 .andReturn().getResponse().getContentAsString();
         idIncidenteEst02 = ((Number) com.jayway.jsonpath.JsonPath.read(r2, "$.id")).longValue();
 
-        String r3 = mvc.perform(post("/api/v1/incidents").header(HEADER, chave)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(incidente("op3", "CAM-DESCONHECIDA")))
-                .andReturn().getResponse().getContentAsString();
-        idIncidenteCameraDesconhecida = ((Number) com.jayway.jsonpath.JsonPath.read(r3, "$.id")).longValue();
+        // CAM-DESCONHECIDA é, de propósito, uma câmera NUNCA cadastrada (prova
+        // o 403 de escopo do operador para câmera desconhecida) — não existe
+        // X-Cypher-Key válida que autentique como ela, então este fixture
+        // insere o incidente direto via AlertaRepository, contornando a
+        // ingestão HTTP (que não é o que este teste exercita).
+        idIncidenteCameraDesconhecida = alertas.saveAndFlush(incidenteDireto("op3", "CAM-DESCONHECIDA")).getId();
 
         String token = estacoes.findById("EST-91").orElseThrow().getToken();
         operadorEst01 = loginOperador(mvc, token);
+    }
+
+    /** Monta um {@link Alerta} pronto para persistir direto, sem passar pela ingestão HTTP. */
+    private Alerta incidenteDireto(String key, String cameraId) {
+        Alerta a = new Alerta();
+        a.setIncidentKey(key);
+        a.setCameraId(cameraId);
+        a.setRunId("run-op");
+        a.setTrackId(1);
+        a.setTipo(AlertaTipo.FALL_RISK);
+        a.setSeveridade(4);
+        a.setNivel(AlertaNivel.fromSeverity(4));
+        a.setReason("r");
+        a.setPosturaCategoria("immediate_risk");
+        a.setRebaScore(11);
+        a.setActionLevel(4);
+        a.setZoneStatus("outside");
+        a.setDescricao("Fixture direto (%s)".formatted(cameraId));
+        a.setDataHora(java.time.OffsetDateTime.parse("2026-08-10T14:31:02.482-03:00"));
+        a.setStatus(AlertaStatus.PENDENTE);
+        return a;
     }
 
     private String incidente(String key, String cameraId) {

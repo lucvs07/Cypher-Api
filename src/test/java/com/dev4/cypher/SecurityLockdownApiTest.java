@@ -1,5 +1,6 @@
 package com.dev4.cypher;
 
+import com.dev4.cypher.repository.CameraRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -10,8 +11,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
 import static com.dev4.cypher.security.AuthTestSupport.loginOperador;
+import static com.dev4.cypher.security.CypherKeyAuthenticationFilter.HEADER;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -20,6 +23,9 @@ class SecurityLockdownApiTest {
 
     @Autowired
     private MockMvc mvc;
+
+    @Autowired
+    private CameraRepository cameras;
 
     @Test
     void healthContinuaPublico() throws Exception {
@@ -42,7 +48,8 @@ class SecurityLockdownApiTest {
 
         mvc.perform(post("/api/v1/setup").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\": \"outro\", \"password\": \"x\"}"))
-                .andExpect(status().isConflict());
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.erro").exists());
     }
 
     @Test
@@ -86,14 +93,54 @@ class SecurityLockdownApiTest {
         MockHttpSession gestor = loginGestorBootstrap(mvc);
         mvc.perform(post("/api/v1/stations").session(gestor).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"id\": \"EST-96\", \"nome\": \"A\", \"setor\": \"s\"}"));
+        // Segunda estação, alheia à do próprio operador — prova a Restrição
+        // Global de que a navegação NÃO é filtrada por estacaoId para
+        // OPERADOR (ao contrário dos endpoints de incidente).
+        mvc.perform(post("/api/v1/stations").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EST-96B\", \"nome\": \"B\", \"setor\": \"s\"}"));
+        mvc.perform(post("/api/v1/cameras").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"CAM-96B\", \"nome\": \"C\", \"estacaoId\": \"EST-96B\", "
+                        + "\"streamUrl\": \"http://127.0.0.1:82962/stream\", \"fonte\": \"f\"}"));
         String token = com.jayway.jsonpath.JsonPath.read(
                 mvc.perform(post("/api/v1/stations/EST-96/token/regenerate").session(gestor))
                         .andReturn().getResponse().getContentAsString(),
                 "$.token");
         MockHttpSession operador = loginOperador(mvc, token);
 
-        mvc.perform(get("/api/v1/cameras").session(operador)).andExpect(status().isOk());
-        mvc.perform(get("/api/v1/stations").session(operador)).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/cameras").session(operador))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id=='CAM-96B')]").isNotEmpty());
+        mvc.perform(get("/api/v1/stations").session(operador))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id=='EST-96B')]").isNotEmpty());
+    }
+
+    @Test
+    void operadorComSessaoEChaveValidaJuntasDevolve403() throws Exception {
+        // Investigação do achado Minor: o filtro X-Cypher-Key roda depois do
+        // filtro que restaura o Authentication da sessão, e SEMPRE
+        // sobrescreve o contexto quando a chave bate — mesmo havendo uma
+        // sessão OPERADOR válida. GET /incidents exige
+        // hasAnyRole("GESTOR","OPERADOR"); ROLE_PIPELINE não está nessa
+        // lista, então o resultado observado (e aqui fixado por teste) é
+        // 403 — a sessão OPERADOR é silenciosamente substituída, não
+        // combinada com o papel PIPELINE. Comportamento atual confirmado,
+        // não alterado por esta tarefa.
+        MockHttpSession gestor = loginGestorBootstrap(mvc);
+        mvc.perform(post("/api/v1/stations").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EST-98\", \"nome\": \"A\", \"setor\": \"s\"}"));
+        mvc.perform(post("/api/v1/cameras").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"CAM-98\", \"nome\": \"C\", \"estacaoId\": \"EST-98\", "
+                        + "\"streamUrl\": \"http://127.0.0.1:8298/stream\", \"fonte\": \"f\"}"));
+        String token = com.jayway.jsonpath.JsonPath.read(
+                mvc.perform(post("/api/v1/stations/EST-98/token/regenerate").session(gestor))
+                        .andReturn().getResponse().getContentAsString(),
+                "$.token");
+        MockHttpSession operador = loginOperador(mvc, token);
+        String chave = cameras.findById("CAM-98").orElseThrow().getApiKey();
+
+        mvc.perform(get("/api/v1/incidents").session(operador).header(HEADER, chave))
+                .andExpect(status().isForbidden());
     }
 
     @Test

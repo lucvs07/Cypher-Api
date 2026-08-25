@@ -30,8 +30,8 @@ class IncidentIngestionApiTest {
 
     private static final String QUEDA = """
             {
-              "incidentKey": "CAM-01:run-api:track-7:20260810T143102482Z",
-              "cameraId": "CAM-01",
+              "incidentKey": "CAM-INGESTAO-TESTE:run-api:track-7:20260810T143102482Z",
+              "cameraId": "CAM-INGESTAO-TESTE",
               "runId": "run-api",
               "trackId": 7,
               "type": "FALL_RISK",
@@ -52,9 +52,11 @@ class IncidentIngestionApiTest {
     /**
      * Upsert, nunca `deleteAll`: outras classes de teste do contexto padrão
      * também escrevem câmera/estação — apagar tudo aqui derrubaria fixture
-     * de quem rodou antes na mesma suíte. A chave é reaproveitada por
-     * qualquer câmera cadastrada (o filtro não compara com `cameraId` do
-     * corpo — spec E4 §2.3).
+     * de quem rodou antes na mesma suíte. A câmera cadastrada é a MESMA
+     * "CAM-INGESTAO-TESTE" usada no corpo de {@code QUEDA} — desde o achado
+     * de segurança da revisão final, a chave só autentica para agir sobre a
+     * PRÓPRIA câmera, então o id cadastrado e o {@code cameraId} do corpo
+     * precisam bater.
      */
     @BeforeEach
     void garantirCameraDeIngestao() {
@@ -165,7 +167,7 @@ class IncidentIngestionApiTest {
         mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(QUEDA.replace(
-                                "\"incidentKey\": \"CAM-01:run-api:track-7:20260810T143102482Z\"",
+                                "\"incidentKey\": \"CAM-INGESTAO-TESTE:run-api:track-7:20260810T143102482Z\"",
                                 "\"incidentKey\": \"\"")))
                 .andExpect(status().isBadRequest());
     }
@@ -176,7 +178,7 @@ class IncidentIngestionApiTest {
         mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE)
                 .contentType(MediaType.APPLICATION_JSON).content(corpo));
 
-        mvc.perform(patch("/api/v1/incidents/CAM-01:run-close:track-7:20260810T143102482Z")
+        mvc.perform(patch("/api/v1/incidents/CAM-INGESTAO-TESTE:run-close:track-7:20260810T143102482Z")
                         .header(HEADER, CHAVE)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""

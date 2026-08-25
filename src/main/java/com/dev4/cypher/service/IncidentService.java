@@ -61,6 +61,12 @@ public class IncidentService {
         return new IngestResult(response, true);
     }
 
+    /** Leitura pura por incidentKey — usada para checar a câmera-alvo antes de fechar (achado de segurança). */
+    @Transactional(readOnly = true)
+    public Optional<IncidentResponse> findByIncidentKey(String incidentKey) {
+        return repository.findByIncidentKey(incidentKey).map(mapper::toResponse);
+    }
+
     @Transactional
     public Optional<IncidentResponse> close(String incidentKey, IncidentCloseRequest req) {
         return repository.findByIncidentKey(incidentKey).map(alerta -> {

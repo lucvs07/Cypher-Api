@@ -40,6 +40,9 @@ class IncidentEventPublicationTest {
     @Autowired
     private CameraRepository cameras;
 
+    // A câmera cadastrada é a MESMA "CAM-INGESTAO-TESTE" usada no corpo dos
+    // incidentes abaixo (achado de segurança da revisão final: a chave só
+    // autentica para agir sobre a própria câmera).
     @BeforeEach
     void garantirCameraDeIngestao() {
         if (cameras.findById("CAM-INGESTAO-TESTE").isEmpty()) {
@@ -68,8 +71,8 @@ class IncidentEventPublicationTest {
     void publicaEventoSomenteDepoisDoCommit() throws Exception {
         String corpo = """
                 {
-                  "incidentKey": "CAM-01:run-evt:track-1:20260810T150000000Z",
-                  "cameraId": "CAM-01",
+                  "incidentKey": "CAM-INGESTAO-TESTE:run-evt:track-1:20260810T150000000Z",
+                  "cameraId": "CAM-INGESTAO-TESTE",
                   "runId": "run-evt",
                   "trackId": 1,
                   "type": "FALL_RISK",
@@ -92,15 +95,15 @@ class IncidentEventPublicationTest {
                 .andExpect(status().isCreated());
 
         assertThat(espiao.recebidosAposCommit)
-                .contains("CAM-01:run-evt:track-1:20260810T150000000Z");
+                .contains("CAM-INGESTAO-TESTE:run-evt:track-1:20260810T150000000Z");
     }
 
     @Test
     void retryNaoRepublicaOEvento() throws Exception {
         String corpo = """
                 {
-                  "incidentKey": "CAM-01:run-retry-evt:track-1:20260810T150000000Z",
-                  "cameraId": "CAM-01",
+                  "incidentKey": "CAM-INGESTAO-TESTE:run-retry-evt:track-1:20260810T150000000Z",
+                  "cameraId": "CAM-INGESTAO-TESTE",
                   "runId": "run-retry-evt",
                   "trackId": 1,
                   "type": "FALL_RISK",
