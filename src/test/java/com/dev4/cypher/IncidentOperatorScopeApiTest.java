@@ -38,6 +38,7 @@ class IncidentOperatorScopeApiTest {
     private MockHttpSession operadorEst01;
     private Long idIncidenteEst01;
     private Long idIncidenteEst02;
+    private Long idIncidenteCameraDesconhecida;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -64,6 +65,11 @@ class IncidentOperatorScopeApiTest {
                         .content(incidente("op2", "CAM-92")))
                 .andReturn().getResponse().getContentAsString();
         idIncidenteEst02 = ((Number) com.jayway.jsonpath.JsonPath.read(r2, "$.id")).longValue();
+
+        String r3 = mvc.perform(post("/api/v1/incidents").contentType(MediaType.APPLICATION_JSON)
+                        .content(incidente("op3", "CAM-DESCONHECIDA")))
+                .andReturn().getResponse().getContentAsString();
+        idIncidenteCameraDesconhecida = ((Number) com.jayway.jsonpath.JsonPath.read(r3, "$.id")).longValue();
 
         String token = estacoes.findById("EST-91").orElseThrow().getToken();
         operadorEst01 = loginOperador(mvc, token);
@@ -93,7 +99,7 @@ class IncidentOperatorScopeApiTest {
     void gestorListaTodosOsIncidentesSemFiltro() throws Exception {
         mvc.perform(get("/api/v1/incidents").session(gestor))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(2));
+                .andExpect(jsonPath("$.totalElements").value(3));
     }
 
     @Test
@@ -118,6 +124,19 @@ class IncidentOperatorScopeApiTest {
     @Test
     void operadorRecebe403AoMudarStatusDeIncidenteDeOutraEstacao() throws Exception {
         mvc.perform(put("/api/v1/incidents/{id}/status", idIncidenteEst02).session(operadorEst01)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"status\": \"REVISADO\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void operadorRecebe403AoLerIncidenteDeCameraDesconhecida() throws Exception {
+        mvc.perform(get("/api/v1/incidents/{id}", idIncidenteCameraDesconhecida).session(operadorEst01))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void operadorRecebe403AoMudarStatusDeIncidenteDeCameraDesconhecida() throws Exception {
+        mvc.perform(put("/api/v1/incidents/{id}/status", idIncidenteCameraDesconhecida).session(operadorEst01)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"status\": \"REVISADO\"}"))
                 .andExpect(status().isForbidden());
     }
