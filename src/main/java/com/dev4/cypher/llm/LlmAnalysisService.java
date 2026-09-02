@@ -10,6 +10,7 @@ import com.dev4.cypher.repository.IncidentLlmAnalysisRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.NoSuchElementException;
 
@@ -23,6 +24,14 @@ public class LlmAnalysisService {
     private final PromptBuilder promptBuilder;
     private final LlmResponseParser parser;
     private final LlmProperties properties;
+
+    /**
+     * 3 tentativas de retry (4 no total), 1s/2s/4s de base com jitter — so
+     * para falha transitoria (5xx, 429, timeout/rede). Contorna o 503 de
+     * "high demand" do nivel gratuito do Gemini sem mascarar erro real
+     * (chave invalida, request malformado nunca sao retentados).
+     */
+    private final RetryComBackoff retry = new RetryComBackoff(3, Duration.ofSeconds(1));
 
     public LlmAnalysisService(AlertaRepository alertas, IncidentLlmAnalysisRepository analyses,
                                MultimodalRiskClient client, PromptBuilder promptBuilder,
@@ -49,7 +58,8 @@ public class LlmAnalysisService {
         String erro = null;
         RiskAnalysisResponse resultado;
         try {
-            bruto = client.analisar(alerta.getSnapshotUrl(), prompt);
+            bruto = retry.executar(() -> client.analisar(alerta.getSnapshotUrl(), prompt),
+                    RetryComBackoff::transitoria);
             resultado = parser.parse(bruto, properties.getProvider(), properties.getPromptVersion());
         } catch (Exception falhaApi) {
             erro = truncar(falhaApi.getMessage());

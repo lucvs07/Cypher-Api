@@ -35,12 +35,23 @@ class LlmAnalysisServiceTest {
                     + "\\\"nivel_risco\\\":\\\"baixo\\\",\\\"justificativa\\\":\\\"nada de anormal\\\","
                     + "\\\"acao_recomendada\\\":\\\"nenhuma\\\"}\"}]}";
 
+    /**
+     * Fila de status agendados para as proximas chamadas — usada so pelo
+     * teste de retry, para simular "falha transitoria duas vezes, depois
+     * sucesso". Vazia (comportamento legado): toda chamada usa
+     * {@code statusDeResposta} direto, sem depender de contagem.
+     */
+    private static final java.util.Queue<Integer> statusAgendados =
+            new java.util.concurrent.ConcurrentLinkedQueue<>();
+
     @DynamicPropertySource
     static void propriedades(DynamicPropertyRegistry registry) throws IOException {
         servidor = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         servidor.createContext("/v1/messages", troca -> {
-            byte[] resposta = corpoDeResposta.getBytes();
-            troca.sendResponseHeaders(statusDeResposta, resposta.length);
+            Integer agendado = statusAgendados.poll();
+            int status = agendado != null ? agendado : statusDeResposta;
+            byte[] resposta = status == 200 ? corpoDeResposta.getBytes() : "{}".getBytes();
+            troca.sendResponseHeaders(status, resposta.length);
             troca.getResponseBody().write(resposta);
             troca.close();
         });
@@ -71,6 +82,7 @@ class LlmAnalysisServiceTest {
     void limpar() {
         alertas.deleteAll();
         analyses.deleteAll();
+        statusAgendados.clear();
         statusDeResposta = 200;
         corpoDeResposta = "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"situacao\\\":\\\"trabalhador ok\\\","
                 + "\\\"epis_identificados\\\":[],\\\"epis_ausentes\\\":[],"
@@ -140,6 +152,21 @@ class LlmAnalysisServiceTest {
         assertThat(resultado.status()).isEqualTo(AnalysisStatus.ERRO_API);
         assertThat(analyses.findAll()).hasSize(1);
         assertThat(analyses.findAll().get(0).getStatus()).isEqualTo(AnalysisStatus.ERRO_API);
+    }
+
+    @Test
+    void falhaTransitoriaTentaDeNovoEAcabaComSucesso() {
+        var alerta = salvarAlertaComSnapshot("https://exemplo.com/foto.jpg");
+        // 503 nas duas primeiras chamadas (transitorio, retentavel); a
+        // terceira cai no comportamento padrao (200 + corpoDeResposta).
+        statusAgendados.offer(503);
+        statusAgendados.offer(503);
+
+        var resultado = service.analisar(alerta.getId());
+
+        assertThat(resultado.status()).isEqualTo(AnalysisStatus.OK);
+        assertThat(resultado.situacao()).isEqualTo("trabalhador ok");
+        assertThat(statusAgendados).isEmpty();
     }
 
     @Test
