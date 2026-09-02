@@ -93,6 +93,10 @@ public class SecurityConfig {
                         .hasAnyRole("GESTOR", "OPERADOR")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/incidents/*/status")
                         .hasAnyRole("GESTOR", "OPERADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/incidents/*/analyze")
+                        .hasRole("GESTOR")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/incidents/*/analyze")
+                        .hasRole("GESTOR")
                         .anyRequest().hasRole("GESTOR"))
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(
                         (request, response, authException) ->

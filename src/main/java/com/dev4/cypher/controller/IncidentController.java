@@ -3,7 +3,9 @@ package com.dev4.cypher.controller;
 import com.dev4.cypher.dto.IncidentCloseRequest;
 import com.dev4.cypher.dto.IncidentRequest;
 import com.dev4.cypher.dto.IncidentResponse;
+import com.dev4.cypher.dto.RiskAnalysisResponse;
 import com.dev4.cypher.dto.StatusRequest;
+import com.dev4.cypher.llm.LlmAnalysisService;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.repository.CameraRepository;
 import com.dev4.cypher.security.OperadorAuthentication;
@@ -42,11 +44,14 @@ public class IncidentController {
     private final IncidentService service;
     private final IncidentSseService sse;
     private final CameraRepository cameras;
+    private final LlmAnalysisService llmAnalysisService;
 
-    public IncidentController(IncidentService service, IncidentSseService sse, CameraRepository cameras) {
+    public IncidentController(IncidentService service, IncidentSseService sse, CameraRepository cameras,
+                               LlmAnalysisService llmAnalysisService) {
         this.service = service;
         this.sse = sse;
         this.cameras = cameras;
+        this.llmAnalysisService = llmAnalysisService;
     }
 
     /** Fluxo de incidentes em tempo real; OPERADOR recebe um fluxo já filtrado pela própria estação. */
@@ -123,6 +128,26 @@ public class IncidentController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return service.changeStatus(id, req.status())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /** Aciona a análise de risco por LLM multimodal sobre o snapshot do incidente (spec §2.5). */
+    @PostMapping("/{id}/analyze")
+    public ResponseEntity<RiskAnalysisResponse> analyze(@PathVariable Long id) {
+        if (service.findById(id).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(llmAnalysisService.analisar(id));
+    }
+
+    /** Ultima analise ja feita, sem chamar o provedor de novo — 404 se nunca foi analisado. */
+    @GetMapping("/{id}/analyze")
+    public ResponseEntity<RiskAnalysisResponse> ultimaAnalise(@PathVariable Long id) {
+        if (service.findById(id).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return llmAnalysisService.ultimaAnalise(id)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
