@@ -141,6 +141,17 @@ public class IncidentController {
         return ResponseEntity.ok(llmAnalysisService.analisar(id));
     }
 
+    /** Ultima analise ja feita, sem chamar o provedor de novo — 404 se nunca foi analisado. */
+    @GetMapping("/{id}/analyze")
+    public ResponseEntity<RiskAnalysisResponse> ultimaAnalise(@PathVariable Long id) {
+        if (service.findById(id).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return llmAnalysisService.ultimaAnalise(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     /** `null` para GESTOR (sem filtro) ou sessão anônima; a própria estacaoId para OPERADOR. */
     private String estacaoIdDoOperadorAtual() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

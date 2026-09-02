@@ -20,6 +20,7 @@ import java.time.OffsetDateTime;
 
 import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
 import static com.dev4.cypher.security.AuthTestSupport.loginOperador;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -138,5 +139,35 @@ class IncidentAnalyzeApiTest {
         mvc.perform(post("/api/v1/incidents/" + id + "/analyze").session(gestor))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.erro").exists());
+    }
+
+    @Test
+    void gestorConsultaAUltimaAnaliseSemChamarOProvedorDeNovo() throws Exception {
+        MockHttpSession gestor = loginGestorBootstrap(mvc);
+        Long id = criarAlertaComSnapshot("https://exemplo.com/foto.jpg");
+        mvc.perform(post("/api/v1/incidents/" + id + "/analyze").session(gestor))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/v1/incidents/" + id + "/analyze").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OK"))
+                .andExpect(jsonPath("$.situacao").value("ok"));
+    }
+
+    @Test
+    void consultaSemNenhumaAnaliseAindaRetorna404() throws Exception {
+        MockHttpSession gestor = loginGestorBootstrap(mvc);
+        Long id = criarAlertaComSnapshot("https://exemplo.com/foto.jpg");
+
+        mvc.perform(get("/api/v1/incidents/" + id + "/analyze").session(gestor))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void consultaDeIncidenteInexistenteRetorna404() throws Exception {
+        MockHttpSession gestor = loginGestorBootstrap(mvc);
+
+        mvc.perform(get("/api/v1/incidents/999999/analyze").session(gestor))
+                .andExpect(status().isNotFound());
     }
 }
