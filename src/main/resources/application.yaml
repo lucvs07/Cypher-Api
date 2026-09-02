@@ -33,6 +33,18 @@ spring:
         write-dates-as-timestamps: false
 
 cypher:
+  llm:
+    provider: claude
+    prompt-version: v2
+    timeout-seconds: 20
+    claude:
+      api-key: ${CYPHER_CLAUDE_API_KEY:}
+      model: claude-sonnet-5
+      base-url: https://api.anthropic.com
+    gemini:
+      api-key: ${CYPHER_GEMINI_API_KEY:}
+      model: gemini-2.5-flash
+      base-url: https://generativelanguage.googleapis.com
   cors:
     allowed-origins:
       - http://localhost:4200
