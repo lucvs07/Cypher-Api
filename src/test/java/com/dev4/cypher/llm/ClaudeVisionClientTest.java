@@ -21,7 +21,6 @@ class ClaudeVisionClientTest {
 
     private static HttpServer servidor;
     private static final List<String> corposRecebidos = new CopyOnWriteArrayList<>();
-    private static volatile int statusDeResposta = 200;
     private static volatile String corpoDeResposta =
             "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"situacao\\\":\\\"ok\\\"}\"}]}";
 
@@ -31,7 +30,7 @@ class ClaudeVisionClientTest {
         servidor.createContext("/v1/messages", troca -> {
             corposRecebidos.add(new String(troca.getRequestBody().readAllBytes()));
             byte[] resposta = corpoDeResposta.getBytes();
-            troca.sendResponseHeaders(statusDeResposta, resposta.length);
+            troca.sendResponseHeaders(200, resposta.length);
             troca.getResponseBody().write(resposta);
             troca.close();
         });
@@ -55,7 +54,6 @@ class ClaudeVisionClientTest {
     @BeforeEach
     void limpar() {
         corposRecebidos.clear();
-        statusDeResposta = 200;
         corpoDeResposta = "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"situacao\\\":\\\"ok\\\"}\"}]}";
     }
 

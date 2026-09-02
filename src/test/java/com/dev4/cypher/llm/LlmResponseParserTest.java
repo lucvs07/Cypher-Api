@@ -57,4 +57,13 @@ class LlmResponseParserTest {
         assertThat(resultado.provider()).isEqualTo("gemini");
         assertThat(resultado.promptVersion()).isEqualTo("v1");
     }
+
+    @Test
+    void jsonValidoMasForaDoEsquemaEsperadoVideErroParse() {
+        var resultado = parser.parse("{\"error\": \"nao posso analisar esta imagem\"}", "gemini", "v1");
+
+        assertThat(resultado.status()).isEqualTo(AnalysisStatus.ERRO_PARSE);
+        assertThat(resultado.provider()).isEqualTo("gemini");
+        assertThat(resultado.promptVersion()).isEqualTo("v1");
+    }
 }

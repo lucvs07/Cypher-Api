@@ -37,6 +37,7 @@ cypher:
     provider: claude
     prompt-version: v2
     timeout-seconds: 20
+    max-tokens: 1024
     claude:
       api-key: ${CYPHER_CLAUDE_API_KEY:}
       model: claude-sonnet-5

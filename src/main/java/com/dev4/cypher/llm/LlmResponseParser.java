@@ -23,15 +23,19 @@ public class LlmResponseParser {
     public RiskAnalysisResponse parse(String bruto, String provider, String promptVersion) {
         try {
             JsonNode raiz = mapper.readTree(extrairJson(bruto));
+            if (!temFormatoMinimoEsperado(raiz)) {
+                throw new IllegalArgumentException(
+                        "JSON nao possui o formato minimo esperado (situacao/nivel_risco)");
+            }
             return new RiskAnalysisResponse(
-                    raiz.path("situacao").asText(""),
+                    raiz.path("situacao").asString(""),
                     listaDe(raiz, "epis_identificados"),
                     listaDe(raiz, "epis_ausentes"),
                     raiz.path("risco_identificado").asBoolean(false),
-                    raiz.path("tipo_risco").asText(null),
-                    raiz.path("nivel_risco").asText(""),
-                    raiz.path("justificativa").asText(""),
-                    raiz.path("acao_recomendada").asText(""),
+                    raiz.path("tipo_risco").asString(null),
+                    raiz.path("nivel_risco").asString(""),
+                    raiz.path("justificativa").asString(""),
+                    raiz.path("acao_recomendada").asString(""),
                     provider,
                     promptVersion,
                     AnalysisStatus.OK,
@@ -41,9 +45,14 @@ public class LlmResponseParser {
         }
     }
 
+    /** Marcadores minimos do schema esperado — sem eles, nao e uma resposta valida (spec §2.5). */
+    private boolean temFormatoMinimoEsperado(JsonNode raiz) {
+        return raiz.isObject() && raiz.has("situacao") && raiz.has("nivel_risco");
+    }
+
     private List<String> listaDe(JsonNode raiz, String campo) {
         List<String> valores = new ArrayList<>();
-        raiz.path(campo).forEach(item -> valores.add(item.asText("")));
+        raiz.path(campo).forEach(item -> valores.add(item.asString("")));
         return valores;
     }
 

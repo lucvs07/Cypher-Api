@@ -14,6 +14,7 @@ public class LlmProperties {
     private String provider = "claude";
     private String promptVersion = "v2";
     private int timeoutSeconds = 20;
+    private int maxTokens = 1024;
     private ProviderConfig claude = new ProviderConfig();
     private ProviderConfig gemini = new ProviderConfig();
 

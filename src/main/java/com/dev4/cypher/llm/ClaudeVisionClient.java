@@ -18,9 +18,11 @@ public class ClaudeVisionClient implements MultimodalRiskClient {
 
     private final RestClient http;
     private final LlmProperties.ProviderConfig config;
+    private final LlmProperties properties;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public ClaudeVisionClient(LlmProperties properties) {
+        this.properties = properties;
         this.config = properties.getClaude();
 
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
@@ -37,7 +39,7 @@ public class ClaudeVisionClient implements MultimodalRiskClient {
     public String analisar(String imagemUrl, String prompt) {
         Map<String, Object> corpo = Map.of(
                 "model", config.getModel(),
-                "max_tokens", 1024,
+                "max_tokens", properties.getMaxTokens(),
                 "messages", List.of(Map.of(
                         "role", "user",
                         "content", List.of(
@@ -54,6 +56,6 @@ public class ClaudeVisionClient implements MultimodalRiskClient {
                 .body(String.class);
 
         JsonNode raiz = mapper.readTree(resposta);
-        return raiz.path("content").path(0).path("text").asText("");
+        return raiz.path("content").path(0).path("text").asString("");
     }
 }

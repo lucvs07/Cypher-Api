@@ -27,6 +27,7 @@ cypher:
     provider: claude
     prompt-version: v2
     timeout-seconds: 20
+    max-tokens: 1024
     claude:
       api-key: chave-de-teste
       model: claude-teste

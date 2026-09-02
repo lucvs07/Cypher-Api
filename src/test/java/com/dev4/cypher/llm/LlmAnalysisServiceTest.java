@@ -150,5 +150,7 @@ class LlmAnalysisServiceTest {
         var resultado = service.analisar(alerta.getId());
 
         assertThat(resultado.status()).isEqualTo(AnalysisStatus.ERRO_PARSE);
+        assertThat(analyses.findAll()).hasSize(1);
+        assertThat(analyses.findAll().get(0).getRespostaJson()).isNotBlank();
     }
 }
