@@ -42,25 +42,32 @@ public class UsuarioService {
 
     @Transactional
     public UsuarioResponse criar(UserRequest req) {
+        String empresaId = TenantContext.currentEmpresaId();
         String estacaoIdPrefixado = prefixarEstacao(req.papel(), req.estacaoId());
         validarPapelEEstacao(req.papel(), estacaoIdPrefixado);
-        if (usuarios.existsByUsername(req.username())) {
+        String username = req.username() + "@" + empresaId;
+        if (usuarios.existsByUsername(username)) {
             throw new CatalogValidationException(HttpStatus.CONFLICT,
-                    "Usuario ja cadastrado: " + req.username());
+                    "Usuario ja cadastrado: " + username);
         }
         if (req.password() == null || req.password().isBlank()) {
             throw new CatalogValidationException(HttpStatus.BAD_REQUEST,
                     "password e obrigatoria no cadastro");
         }
-        Usuario novo = new Usuario(null, req.username(), encoder.encode(req.password()), req.papel(),
-                estacaoIdPrefixado, TenantContext.DEMO_EMPRESA_ID);
+        Usuario novo = new Usuario(null, username, encoder.encode(req.password()), req.papel(),
+                estacaoIdPrefixado, empresaId);
         return toResponse(usuarios.saveAndFlush(novo));
     }
 
     @Transactional
     public Optional<UsuarioResponse> atualizar(String username, UserRequest req) {
+        String empresaId = TenantContext.currentEmpresaId();
         String estacaoIdPrefixado = prefixarEstacao(req.papel(), req.estacaoId());
         validarPapelEEstacao(req.papel(), estacaoIdPrefixado);
+        if (!req.username().endsWith("@" + empresaId)) {
+            throw new CatalogValidationException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "username deve terminar em @" + empresaId);
+        }
         return usuarios.findByUsername(username).map(usuario -> {
             if (!usuario.getUsername().equals(req.username()) && usuarios.existsByUsername(req.username())) {
                 throw new CatalogValidationException(HttpStatus.CONFLICT,
@@ -80,7 +87,7 @@ public class UsuarioService {
     /** Prefixa {@code estacaoId} com o tenant unico, so quando papel OPERADOR e o valor foi informado. */
     private String prefixarEstacao(String papel, String estacaoId) {
         return "OPERADOR".equals(papel) && estacaoId != null && !estacaoId.isBlank()
-                ? TenantContext.key(TenantContext.DEMO_EMPRESA_ID, estacaoId) : null;
+                ? TenantContext.key(estacaoId) : null;
     }
 
     @Transactional

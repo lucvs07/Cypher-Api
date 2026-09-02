@@ -7,11 +7,14 @@ import com.dev4.cypher.model.Estacao;
 import com.dev4.cypher.model.Turno;
 import com.dev4.cypher.repository.EquipeRepository;
 import com.dev4.cypher.repository.EstacaoRepository;
+import com.dev4.cypher.security.GestorAuthentication;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,8 +36,15 @@ class EquipeServiceTest {
     @BeforeEach
     void setUp() {
         service = new EquipeService(equipes, estacoes);
+        SecurityContextHolder.getContext().setAuthentication(
+                new GestorAuthentication("gestor@demo", "demo"));
         estacoes.save(new Estacao("demo:EST-01", "Esteira", "montagem", true, "tok-EST-01", "demo"));
         estacoes.saveAndFlush(new Estacao("demo:EST-02", "Prensa", "estamparia", true, "tok-EST-02", "demo"));
+    }
+
+    @AfterEach
+    void limparContexto() {
+        SecurityContextHolder.clearContext();
     }
 
     private TeamRequest equipeA() {

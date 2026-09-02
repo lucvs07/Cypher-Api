@@ -73,21 +73,21 @@ public class CatalogService {
 
     @Transactional
     public EstacaoAdminResponse createStation(StationRequest req) {
-        String id = TenantContext.key(TenantContext.DEMO_EMPRESA_ID, req.id());
+        String id = TenantContext.key(req.id());
         if (estacoes.existsById(id)) {
             throw new CatalogValidationException(HttpStatus.CONFLICT,
                     "Estacao ja cadastrada: " + req.id());
         }
         Estacao nova = new Estacao(id, req.nome(), req.setor(),
                 req.ativa() == null || req.ativa(), TokenGenerator.novo("est-tok"),
-                TenantContext.DEMO_EMPRESA_ID);
+                TenantContext.currentEmpresaId());
         return toAdminResponse(estacoes.saveAndFlush(nova));
     }
 
     @Transactional
     public Optional<EstacaoAdminResponse> updateStation(String id, StationRequest req) {
         exigirMesmoCodigo(id, req.id(), "estacao");
-        return estacoes.findById(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, id)).map(estacao -> {
+        return estacoes.findById(TenantContext.key(id)).map(estacao -> {
             estacao.setNome(req.nome());
             estacao.setSetor(req.setor());
             // ativa nulo significa "nao mexer": evita reativar por acidente
@@ -102,7 +102,7 @@ public class CatalogService {
     /** Rotaciona o token sem recriar a estação (spec E4 §2.4) — GESTOR-only. */
     @Transactional
     public Optional<EstacaoAdminResponse> regenerateToken(String id) {
-        return estacoes.findById(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, id)).map(estacao -> {
+        return estacoes.findById(TenantContext.key(id)).map(estacao -> {
             estacao.setToken(TokenGenerator.novo("est-tok"));
             return toAdminResponse(estacoes.saveAndFlush(estacao));
         });
@@ -110,7 +110,7 @@ public class CatalogService {
 
     @Transactional
     public boolean deactivateStation(String id) {
-        return estacoes.findById(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, id)).map(estacao -> {
+        return estacoes.findById(TenantContext.key(id)).map(estacao -> {
             estacao.setAtiva(false);
             estacoes.saveAndFlush(estacao);
             return true;
@@ -125,33 +125,33 @@ public class CatalogService {
     public Optional<CameraAdminResponse> camera(String id) {
         // Responde também para câmera desativada: é preciso poder vê-la para
         // reativá-la. Quem filtra por ativa é a lista, não o item.
-        return cameras.findById(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, id)).map(this::toAdminResponse);
+        return cameras.findById(TenantContext.key(id)).map(this::toAdminResponse);
     }
 
     @Transactional
     public CameraAdminResponse createCamera(CameraRequest req) {
-        String id = TenantContext.key(TenantContext.DEMO_EMPRESA_ID, req.id());
+        String id = TenantContext.key(req.id());
         if (cameras.existsById(id)) {
             throw new CatalogValidationException(HttpStatus.CONFLICT,
                     "Camera ja cadastrada: " + req.id());
         }
-        String estacaoId = TenantContext.key(TenantContext.DEMO_EMPRESA_ID, req.estacaoId());
+        String estacaoId = TenantContext.key(req.estacaoId());
         exigirEstacao(estacaoId);
         exigirUrlLivre(req.streamUrl(), id);
         CatalogCodes.portaDe(req.streamUrl());
 
         Camera nova = new Camera(id, req.nome(), estacaoId,
                 req.streamUrl(), req.fonte(), req.ativa() == null || req.ativa(),
-                TokenGenerator.novo("cam-key"), TenantContext.DEMO_EMPRESA_ID);
+                TokenGenerator.novo("cam-key"), TenantContext.currentEmpresaId());
         return toAdminResponse(cameras.saveAndFlush(nova));
     }
 
     @Transactional
     public Optional<CameraAdminResponse> updateCamera(String id, CameraRequest req) {
         exigirMesmoCodigo(id, req.id(), "camera");
-        String chave = TenantContext.key(TenantContext.DEMO_EMPRESA_ID, id);
+        String chave = TenantContext.key(id);
         return cameras.findById(chave).map(camera -> {
-            String estacaoId = TenantContext.key(TenantContext.DEMO_EMPRESA_ID, req.estacaoId());
+            String estacaoId = TenantContext.key(req.estacaoId());
             exigirEstacao(estacaoId);
             exigirUrlLivre(req.streamUrl(), chave);
             CatalogCodes.portaDe(req.streamUrl());
@@ -174,7 +174,7 @@ public class CatalogService {
      */
     @Transactional
     public Optional<CameraApiKeyResponse> regenerateApiKey(String id) {
-        return cameras.findById(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, id)).map(camera -> {
+        return cameras.findById(TenantContext.key(id)).map(camera -> {
             camera.setApiKey(TokenGenerator.novo("cam-key"));
             return toApiKeyResponse(cameras.saveAndFlush(camera));
         });
@@ -182,7 +182,7 @@ public class CatalogService {
 
     @Transactional
     public boolean deactivateCamera(String id) {
-        return cameras.findById(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, id)).map(camera -> {
+        return cameras.findById(TenantContext.key(id)).map(camera -> {
             camera.setAtiva(false);
             cameras.saveAndFlush(camera);
             return true;
@@ -197,7 +197,7 @@ public class CatalogService {
      */
     @Transactional(readOnly = true)
     public Optional<CameraConfigResponse> cameraConfig(String id) {
-        return cameras.findById(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, id)).map(camera -> {
+        return cameras.findById(TenantContext.key(id)).map(camera -> {
             if (!camera.isAtiva()) {
                 throw new CatalogValidationException(HttpStatus.CONFLICT,
                         "Camera desativada: " + TenantContext.codigo(camera.getId()));

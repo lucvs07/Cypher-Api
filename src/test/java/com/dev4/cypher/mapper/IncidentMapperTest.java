@@ -6,7 +6,11 @@ import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.AlertaNivel;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.model.AlertaTipo;
+import com.dev4.cypher.security.GestorAuthentication;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -17,6 +21,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 class IncidentMapperTest {
 
     private final IncidentMapper mapper = new IncidentMapper();
+
+    @BeforeEach
+    void autenticar() {
+        SecurityContextHolder.getContext().setAuthentication(
+                new GestorAuthentication("gestor@demo", "demo"));
+    }
+
+    @AfterEach
+    void limparContexto() {
+        SecurityContextHolder.clearContext();
+    }
 
     private IncidentRequest queda() {
         return new IncidentRequest(

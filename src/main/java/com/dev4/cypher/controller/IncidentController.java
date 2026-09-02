@@ -168,7 +168,7 @@ public class IncidentController {
         if (!(auth instanceof OperadorAuthentication operador)) {
             return false;
         }
-        return cameras.findById(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, cameraId))
+        return cameras.findById(TenantContext.key(cameraId))
                 .map(c -> !c.getEstacaoId().equals(operador.getEstacaoId()))
                 .orElse(true);
     }
@@ -184,6 +184,6 @@ public class IncidentController {
     private boolean chaveDeOutraCamera(String cameraIdDoAlvo) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return auth instanceof PipelineAuthentication pipeline
-                && !pipeline.getCameraId().equals(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, cameraIdDoAlvo));
+                && !pipeline.getCameraId().equals(TenantContext.key(cameraIdDoAlvo));
     }
 }

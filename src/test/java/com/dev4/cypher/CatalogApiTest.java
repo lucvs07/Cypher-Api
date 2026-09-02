@@ -4,13 +4,16 @@ import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.AlertaNivel;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.model.AlertaTipo;
+import com.dev4.cypher.model.Usuario;
 import com.dev4.cypher.repository.AlertaRepository;
+import com.dev4.cypher.repository.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
+import static com.dev4.cypher.security.AuthTestSupport.loginGestor;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -44,11 +47,30 @@ class CatalogApiTest {
     @Autowired
     private AlertaRepository alertas;
 
+    @Autowired
+    private UsuarioRepository usuarios;
+
+    @Autowired
+    private PasswordEncoder encoder;
+
     private MockHttpSession gestor;
 
+    /**
+     * O catalogo desta classe (EST-01/CAM-01) vem do {@code CatalogSeeder} sob
+     * o tenant "demo" (`CatalogSeeder.EMPRESA_DEMO`) — o gestor de teste
+     * precisa pertencer ao MESMO tenant, senão `TenantContext.key(...)` monta
+     * uma chave prefixada diferente e as operações por id (delete/get) não
+     * encontram os registros semeados. `POST /setup` não serve aqui: a
+     * `Empresa` "demo" já existe (seeder), então devolveria 409 — o `Usuario`
+     * é criado direto, igual ao padrão de `AuthControllerApiTest`.
+     */
     @BeforeEach
     void autenticar() throws Exception {
-        gestor = loginGestorBootstrap(mvc);
+        if (!usuarios.existsByUsername("gestor-catalogo@demo")) {
+            usuarios.save(new Usuario(null, "gestor-catalogo@demo", encoder.encode("senha123"),
+                    "GESTOR", null, "demo"));
+        }
+        gestor = loginGestor(mvc, "gestor-catalogo@demo", "senha123");
     }
 
     @Test

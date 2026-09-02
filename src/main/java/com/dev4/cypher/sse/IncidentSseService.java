@@ -58,7 +58,7 @@ public class IncidentSseService {
     }
 
     public void broadcast(String eventName, IncidentResponse incident) {
-        String estacaoDoIncidente = cameras.findById(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, incident.cameraId()))
+        String estacaoDoIncidente = cameras.findById(TenantContext.key(incident.cameraId()))
                 .map(c -> c.getEstacaoId())
                 .orElse(null);
         enviarAosQueEnxergam(estacaoDoIncidente, SseEmitter.event().name(eventName).data(incident));

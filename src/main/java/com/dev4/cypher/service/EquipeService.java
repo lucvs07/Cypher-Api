@@ -34,7 +34,7 @@ public class EquipeService {
 
     @Transactional
     public TeamResponse criar(TeamRequest req) {
-        String id = TenantContext.key(TenantContext.DEMO_EMPRESA_ID, req.id());
+        String id = TenantContext.key(req.id());
         if (equipes.existsById(id)) {
             throw new CatalogValidationException(HttpStatus.CONFLICT, "Equipe ja cadastrada: " + req.id());
         }
@@ -42,14 +42,14 @@ public class EquipeService {
         exigirEstacoesExistentes(estacaoIds);
         exigirSemConflito(estacaoIds, req.turno(), null);
         Equipe nova = new Equipe(id, req.nome(), req.turno(), estacaoIds,
-                req.ativa() == null || req.ativa(), TenantContext.DEMO_EMPRESA_ID);
+                req.ativa() == null || req.ativa(), TenantContext.currentEmpresaId());
         return toResponse(equipes.saveAndFlush(nova));
     }
 
     @Transactional
     public Optional<TeamResponse> atualizar(String id, TeamRequest req) {
         exigirMesmoCodigo(id, req.id());
-        return equipes.findById(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, id)).map(equipe -> {
+        return equipes.findById(TenantContext.key(id)).map(equipe -> {
             List<String> estacaoIds = prefixar(req.estacaoIds());
             exigirEstacoesExistentes(estacaoIds);
             exigirSemConflito(estacaoIds, req.turno(), equipe.getId());
@@ -65,7 +65,7 @@ public class EquipeService {
 
     @Transactional
     public boolean remover(String id) {
-        String chave = TenantContext.key(TenantContext.DEMO_EMPRESA_ID, id);
+        String chave = TenantContext.key(id);
         if (!equipes.existsById(chave)) {
             return false;
         }
@@ -75,7 +75,7 @@ public class EquipeService {
 
     private List<String> prefixar(List<String> estacaoIds) {
         return estacaoIds.stream()
-                .map(id -> TenantContext.key(TenantContext.DEMO_EMPRESA_ID, id))
+                .map(id -> TenantContext.key(id))
                 .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
     }
 

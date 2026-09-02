@@ -40,7 +40,7 @@ public class IncidentMapper {
         a.setDescricao(descricaoDe(req.type(), req.reason(), req.cameraId()));
         // Status é sempre atribuído pelo servidor; nunca vem do cliente.
         a.setStatus(AlertaStatus.PENDENTE);
-        a.setEmpresaId(TenantContext.DEMO_EMPRESA_ID);
+        a.setEmpresaId(TenantContext.currentEmpresaId());
         return a;
     }
 

@@ -9,10 +9,12 @@ import java.util.List;
 public class PipelineAuthentication extends AbstractAuthenticationToken {
 
     private final String cameraId;
+    private final String empresaId;
 
-    public PipelineAuthentication(String cameraId) {
+    public PipelineAuthentication(String cameraId, String empresaId) {
         super(List.of(new SimpleGrantedAuthority("ROLE_PIPELINE")));
         this.cameraId = cameraId;
+        this.empresaId = empresaId;
         setAuthenticated(true);
     }
 
@@ -28,5 +30,9 @@ public class PipelineAuthentication extends AbstractAuthenticationToken {
 
     public String getCameraId() {
         return cameraId;
+    }
+
+    public String getEmpresaId() {
+        return empresaId;
     }
 }

@@ -105,7 +105,7 @@ class CameraConfigApiTest {
 
     @Test
     void pipelineComChaveValidaAcessaConfigSemSessao() throws Exception {
-        String apiKey = cameras.findById("demo:CAM-55").orElseThrow().getApiKey();
+        String apiKey = cameras.findById("acme-test:CAM-55").orElseThrow().getApiKey();
 
         mvc.perform(get("/api/v1/cameras/CAM-55/config").header(HEADER, apiKey))
                 .andExpect(status().isOk())

@@ -1,8 +1,7 @@
 package com.dev4.cypher;
 
-import com.dev4.cypher.model.Usuario;
+import com.dev4.cypher.repository.EmpresaRepository;
 import com.dev4.cypher.repository.UsuarioRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -18,14 +17,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * `@Transactional` + `deleteAll()` no `@BeforeEach` (mesmo padrão de
- * `CatalogWriteApiTest`): sem isso, `configuradoFalseQuandoNenhumUsuarioExiste`
- * seria dependente da ordem de execução da suíte inteira — qualquer outra
- * classe que já tenha commitado um `Usuario` no H2 compartilhado
- * (`DB_CLOSE_DELAY=-1`) faria esse teste ver `configured: true` mesmo
- * partindo de uma tabela "vazia" do ponto de vista deste método. O rollback
- * ao final de cada teste devolve a tabela ao estado anterior, sem afetar
- * nenhuma outra classe.
+ * `@Transactional` (mesmo padrão de `CatalogWriteApiTest`): rollback ao final
+ * de cada teste devolve o banco ao estado anterior, sem afetar nenhuma outra
+ * classe. O conflito de sign-up agora é por slug de empresa, então os testes
+ * não dependem mais de a tabela `usuarios` estar vazia.
  */
 @SpringBootTest
 @Transactional
@@ -38,26 +33,8 @@ class SetupApiTest {
     @Autowired
     private UsuarioRepository usuarios;
 
-    @BeforeEach
-    void limpar() {
-        usuarios.deleteAll();
-    }
-
-    @Test
-    void configuradoFalseQuandoNenhumUsuarioExiste() throws Exception {
-        mvc.perform(get("/api/v1/setup/status"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.configured").value(false));
-    }
-
-    @Test
-    void configuradoTrueQuandoJaExisteUsuario() throws Exception {
-        usuarios.saveAndFlush(new Usuario(null, "gestor1", "hash-qualquer", "GESTOR", null, "demo"));
-
-        mvc.perform(get("/api/v1/setup/status"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.configured").value(true));
-    }
+    @Autowired
+    private EmpresaRepository empresas;
 
     @Test
     void setupCriaOGestorEDevolveSessaoAutenticada() throws Exception {
@@ -65,27 +42,43 @@ class SetupApiTest {
 
         mvc.perform(post("/api/v1/setup").session(session)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\": \"admin\", \"password\": \"admin123\"}"))
+                        .content("{\"username\": \"admin\", \"password\": \"admin123\", "
+                                + "\"empresaId\": \"acme\", \"empresaNome\": \"Acme\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.papel").value("GESTOR"))
-                .andExpect(jsonPath("$.username").value("admin"))
+                .andExpect(jsonPath("$.username").value("admin@acme"))
+                .andExpect(jsonPath("$.empresaId").value("acme"))
+                .andExpect(jsonPath("$.empresaNome").value("Acme"))
                 .andExpect(jsonPath("$.estacaoId").doesNotExist());
 
-        // Prova de que /setup grava sessão autenticada de verdade, não só o
-        // corpo da resposta: uma segunda requisição, mesmo MockHttpSession,
-        // enxerga a autenticação feita pelo POST /setup.
         mvc.perform(get("/api/v1/auth/me").session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.papel").value("GESTOR"));
     }
 
     @Test
-    void setupSeSegundaVezDevolve409() throws Exception {
-        usuarios.saveAndFlush(new com.dev4.cypher.model.Usuario(null, "ja-existe", "hash", "GESTOR", null, "demo"));
+    void setupSeSegundaVezComMesmoSlugDevolve409() throws Exception {
+        empresas.saveAndFlush(new com.dev4.cypher.model.Empresa("ja-existe", "Ja Existe Ltda", true));
 
         mvc.perform(post("/api/v1/setup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\": \"outro\", \"password\": \"x\"}"))
+                        .content("{\"username\": \"outro\", \"password\": \"x\", "
+                                + "\"empresaId\": \"ja-existe\", \"empresaNome\": \"Ja Existe\"}"))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void setupComSlugDiferenteEmParaleloNaoColide() throws Exception {
+        mvc.perform(post("/api/v1/setup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"gestor\", \"password\": \"x\", "
+                                + "\"empresaId\": \"empresa-a\", \"empresaNome\": \"Empresa A\"}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(post("/api/v1/setup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"gestor\", \"password\": \"x\", "
+                                + "\"empresaId\": \"empresa-b\", \"empresaNome\": \"Empresa B\"}"))
+                .andExpect(status().isOk());
     }
 }

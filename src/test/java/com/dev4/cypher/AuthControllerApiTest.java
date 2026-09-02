@@ -51,7 +51,7 @@ class AuthControllerApiTest {
     @BeforeEach
     void garantirGestorBootstrap() {
         if (!usuarios.existsByUsername(GESTOR_USERNAME)) {
-            usuarios.save(new Usuario(null, GESTOR_USERNAME, encoder.encode(GESTOR_PASSWORD), "GESTOR", null, "demo"));
+            usuarios.save(new Usuario(null, GESTOR_USERNAME, encoder.encode(GESTOR_PASSWORD), "GESTOR", null, "acme-test"));
         }
     }
 
@@ -117,7 +117,7 @@ class AuthControllerApiTest {
         mvc.perform(post("/api/v1/stations").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"id\": \"EST-70\", \"nome\": \"Prensa 7\", \"setor\": \"estamparia\"}"));
-        String token = estacoes.findById("demo:EST-70").orElseThrow().getToken();
+        String token = estacoes.findById("acme-test:EST-70").orElseThrow().getToken();
         MockHttpSession session = new MockHttpSession();
 
         mvc.perform(post("/api/v1/auth/login-estacao").session(session)
@@ -140,7 +140,7 @@ class AuthControllerApiTest {
         mvc.perform(post("/api/v1/stations").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"id\": \"EST-71\", \"nome\": \"Prensa 8\", \"setor\": \"estamparia\"}"));
-        String token = estacoes.findById("demo:EST-71").orElseThrow().getToken();
+        String token = estacoes.findById("acme-test:EST-71").orElseThrow().getToken();
         mvc.perform(delete("/api/v1/stations/EST-71").session(gestor))
                 .andExpect(status().isNoContent());
 
@@ -171,20 +171,23 @@ class AuthControllerApiTest {
                 .content("{\"username\": \"op-cred\", \"papel\": \"OPERADOR\", "
                         + "\"password\": \"senhaOp123\", \"estacaoId\": \"EST-72\"}"));
         MockHttpSession session = new MockHttpSession();
+        // UsuarioService.criar compoe o username com o tenant atual
+        // ("op-cred" + "@acme-test") — nunca o valor cru enviado no corpo.
+        String usernameCompleto = "op-cred@acme-test";
 
         mvc.perform(post("/api/v1/auth/login").session(session)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\": \"op-cred\", \"password\": \"senhaOp123\"}"))
+                        .content("{\"username\": \"%s\", \"password\": \"senhaOp123\"}".formatted(usernameCompleto)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.papel").value("OPERADOR"))
                 .andExpect(jsonPath("$.estacaoId").value("EST-72"))
-                .andExpect(jsonPath("$.username").value("op-cred"));
+                .andExpect(jsonPath("$.username").value(usernameCompleto));
 
         mvc.perform(get("/api/v1/auth/me").session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.papel").value("OPERADOR"))
                 .andExpect(jsonPath("$.estacaoId").value("EST-72"))
-                .andExpect(jsonPath("$.username").value("op-cred"));
+                .andExpect(jsonPath("$.username").value(usernameCompleto));
     }
 
     @Test

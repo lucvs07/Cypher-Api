@@ -75,7 +75,8 @@ public class CypherKeyAuthenticationFilter extends OncePerRequestFilter {
         String chave = request.getHeader(HEADER);
         Optional<Camera> camera = chave != null ? cameras.findByApiKey(chave) : Optional.empty();
         camera.ifPresent(c ->
-                SecurityContextHolder.getContext().setAuthentication(new PipelineAuthentication(c.getId())));
+                SecurityContextHolder.getContext().setAuthentication(
+                        new PipelineAuthentication(c.getId(), c.getEmpresaId())));
 
         if (isRotaDeIngestao(request) && camera.isEmpty()) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED);

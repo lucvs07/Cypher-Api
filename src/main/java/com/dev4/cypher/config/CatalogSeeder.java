@@ -25,6 +25,8 @@ public class CatalogSeeder implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(CatalogSeeder.class);
 
+    private static final String EMPRESA_DEMO = "demo";
+
     private final CatalogProperties properties;
     private final EmpresaRepository empresas;
     private final EstacaoRepository estacoes;
@@ -52,15 +54,15 @@ public class CatalogSeeder implements ApplicationRunner {
      */
     @Override
     public void run(ApplicationArguments args) {
-        if (!empresas.existsById(TenantContext.DEMO_EMPRESA_ID)) {
-            empresas.save(new Empresa(TenantContext.DEMO_EMPRESA_ID, "Empresa de demonstracao", true));
+        if (!empresas.existsById(EMPRESA_DEMO)) {
+            empresas.save(new Empresa(EMPRESA_DEMO, "Empresa de demonstracao", true));
         }
 
         if (estacoes.count() == 0) {
             properties.getStations().forEach(cfg ->
-                    estacoes.save(new Estacao(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, cfg.getId()),
+                    estacoes.save(new Estacao(TenantContext.key(EMPRESA_DEMO, cfg.getId()),
                             cfg.getNome(), cfg.getSetor(), cfg.isAtiva(), TokenGenerator.novo("est-tok"),
-                            TenantContext.DEMO_EMPRESA_ID)));
+                            EMPRESA_DEMO)));
             log.info("Catalogo: {} estacao(oes) semeada(s) da configuracao",
                     properties.getStations().size());
         } else {
@@ -70,10 +72,10 @@ public class CatalogSeeder implements ApplicationRunner {
 
         if (cameras.count() == 0) {
             properties.getCameras().forEach(cfg ->
-                    cameras.save(new Camera(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, cfg.getId()),
-                            cfg.getNome(), TenantContext.key(TenantContext.DEMO_EMPRESA_ID, cfg.getEstacaoId()),
+                    cameras.save(new Camera(TenantContext.key(EMPRESA_DEMO, cfg.getId()),
+                            cfg.getNome(), TenantContext.key(EMPRESA_DEMO, cfg.getEstacaoId()),
                             cfg.getStreamUrl(), cfg.getFonte(), cfg.isAtiva(), TokenGenerator.novo("cam-key"),
-                            TenantContext.DEMO_EMPRESA_ID)));
+                            EMPRESA_DEMO)));
             log.info("Catalogo: {} camera(s) semeada(s) da configuracao",
                     properties.getCameras().size());
         } else {
@@ -88,7 +90,7 @@ public class CatalogSeeder implements ApplicationRunner {
                     .anyMatch(w -> w.getUrl().equals(cfg.getUrl()));
             if (!jaExiste) {
                 webhooks.save(new WebhookSubscription(null, cfg.getUrl(), cfg.getSecret(),
-                        cfg.getMinSeverity(), cfg.isAtivo(), TenantContext.DEMO_EMPRESA_ID));
+                        cfg.getMinSeverity(), cfg.isAtivo(), EMPRESA_DEMO));
             }
         });
     }
