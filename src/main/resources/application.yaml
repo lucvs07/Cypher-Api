@@ -44,7 +44,7 @@ cypher:
       base-url: https://api.anthropic.com
     gemini:
       api-key: ${CYPHER_GEMINI_API_KEY:}
-      model: gemini-2.5-flash
+      model: gemini-flash-latest
       base-url: https://generativelanguage.googleapis.com
   cors:
     allowed-origins:
