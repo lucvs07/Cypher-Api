@@ -21,12 +21,20 @@ public record RiskAnalysisResponse(
         OffsetDateTime geradoEm
 ) {
     public static RiskAnalysisResponse erroApi(String provider, String promptVersion) {
+        return erroApi(provider, promptVersion, OffsetDateTime.now());
+    }
+
+    public static RiskAnalysisResponse erroApi(String provider, String promptVersion, OffsetDateTime geradoEm) {
         return new RiskAnalysisResponse(null, List.of(), List.of(), false, null, null, null, null,
-                provider, promptVersion, AnalysisStatus.ERRO_API, OffsetDateTime.now());
+                provider, promptVersion, AnalysisStatus.ERRO_API, geradoEm);
     }
 
     public static RiskAnalysisResponse erroParse(String provider, String promptVersion) {
+        return erroParse(provider, promptVersion, OffsetDateTime.now());
+    }
+
+    public static RiskAnalysisResponse erroParse(String provider, String promptVersion, OffsetDateTime geradoEm) {
         return new RiskAnalysisResponse(null, List.of(), List.of(), false, null, null, null, null,
-                provider, promptVersion, AnalysisStatus.ERRO_PARSE, OffsetDateTime.now());
+                provider, promptVersion, AnalysisStatus.ERRO_PARSE, geradoEm);
     }
 }

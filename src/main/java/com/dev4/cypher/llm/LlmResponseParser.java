@@ -21,6 +21,17 @@ public class LlmResponseParser {
     private final ObjectMapper mapper = new ObjectMapper();
 
     public RiskAnalysisResponse parse(String bruto, String provider, String promptVersion) {
+        return parse(bruto, provider, promptVersion, OffsetDateTime.now());
+    }
+
+    /**
+     * Mesma interpretacao, com timestamp explicito — usado para reconstruir
+     * uma analise ja salva (spec de "ultima analise"), onde `geradoEm` deve
+     * refletir quando a chamada realmente aconteceu, nao o instante da
+     * releitura.
+     */
+    public RiskAnalysisResponse parse(String bruto, String provider, String promptVersion,
+                                       OffsetDateTime geradoEm) {
         try {
             JsonNode raiz = mapper.readTree(extrairJson(bruto));
             if (!temFormatoMinimoEsperado(raiz)) {
@@ -39,9 +50,9 @@ public class LlmResponseParser {
                     provider,
                     promptVersion,
                     AnalysisStatus.OK,
-                    OffsetDateTime.now());
+                    geradoEm);
         } catch (Exception falha) {
-            return RiskAnalysisResponse.erroParse(provider, promptVersion);
+            return RiskAnalysisResponse.erroParse(provider, promptVersion, geradoEm);
         }
     }
 

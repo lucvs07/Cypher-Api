@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 /** Orquestra a analise de risco por LLM para um incidente (spec §2.5). */
 @Service
@@ -70,6 +71,26 @@ public class LlmAnalysisService {
                 resultado.status(), bruto, erro, OffsetDateTime.now()));
 
         return resultado;
+    }
+
+    /**
+     * Devolve a analise mais recente ja feita para este incidente, sem
+     * chamar o provedor de novo — reconstruida a partir do que ja esta
+     * salvo (spec: gestor reabrindo o mesmo incidente ve o resultado
+     * anterior em vez de precisar reanalisar).
+     */
+    public Optional<RiskAnalysisResponse> ultimaAnalise(Long alertaId) {
+        return analyses.findFirstByAlertaIdOrderByCriadoEmDesc(alertaId)
+                .map(this::reconstruir);
+    }
+
+    private RiskAnalysisResponse reconstruir(IncidentLlmAnalysis registro) {
+        if (registro.getRespostaJson() == null) {
+            return RiskAnalysisResponse.erroApi(registro.getProvider(), registro.getPromptVersion(),
+                    registro.getCriadoEm());
+        }
+        return parser.parse(registro.getRespostaJson(), registro.getProvider(),
+                registro.getPromptVersion(), registro.getCriadoEm());
     }
 
     /** IncidentLlmAnalysis.erro nao tem @Column(length=...) explicito: varchar(255) por padrao. */

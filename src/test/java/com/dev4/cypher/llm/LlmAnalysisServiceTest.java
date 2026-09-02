@@ -44,10 +44,15 @@ class LlmAnalysisServiceTest {
     private static final java.util.Queue<Integer> statusAgendados =
             new java.util.concurrent.ConcurrentLinkedQueue<>();
 
+    /** Conta quantas vezes o "provedor" (servidor fake) foi de fato chamado. */
+    private static final java.util.concurrent.atomic.AtomicInteger chamadasRecebidas =
+            new java.util.concurrent.atomic.AtomicInteger(0);
+
     @DynamicPropertySource
     static void propriedades(DynamicPropertyRegistry registry) throws IOException {
         servidor = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         servidor.createContext("/v1/messages", troca -> {
+            chamadasRecebidas.incrementAndGet();
             Integer agendado = statusAgendados.poll();
             int status = agendado != null ? agendado : statusDeResposta;
             byte[] resposta = status == 200 ? corpoDeResposta.getBytes() : "{}".getBytes();
@@ -167,6 +172,58 @@ class LlmAnalysisServiceTest {
         assertThat(resultado.status()).isEqualTo(AnalysisStatus.OK);
         assertThat(resultado.situacao()).isEqualTo("trabalhador ok");
         assertThat(statusAgendados).isEmpty();
+    }
+
+    @Test
+    void ultimaAnaliseSemNenhumaChamadaAntesDevolveVazio() {
+        var alerta = salvarAlertaComSnapshot("https://exemplo.com/foto.jpg");
+
+        assertThat(service.ultimaAnalise(alerta.getId())).isEmpty();
+    }
+
+    @Test
+    void ultimaAnaliseReconstroiAUltimaChamadaSemChamarOProvedorDeNovo() {
+        var alerta = salvarAlertaComSnapshot("https://exemplo.com/foto.jpg");
+        service.analisar(alerta.getId());
+        int chamadasAoServidorAntes = chamadasRecebidas.get();
+
+        var ultima = service.ultimaAnalise(alerta.getId());
+
+        assertThat(ultima).isPresent();
+        assertThat(ultima.get().status()).isEqualTo(AnalysisStatus.OK);
+        assertThat(ultima.get().situacao()).isEqualTo("trabalhador ok");
+        assertThat(ultima.get().provider()).isEqualTo("claude");
+        // Reconstruida do que ja estava salvo — nao chamou o provedor de novo.
+        assertThat(chamadasRecebidas.get()).isEqualTo(chamadasAoServidorAntes);
+    }
+
+    @Test
+    void ultimaAnaliseDevolveASemprseMaisRecenteQuandoHaVariasChamadas() {
+        var alerta = salvarAlertaComSnapshot("https://exemplo.com/foto.jpg");
+        service.analisar(alerta.getId());
+        corpoDeResposta = "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"situacao\\\":\\\"segunda chamada\\\","
+                + "\\\"epis_identificados\\\":[],\\\"epis_ausentes\\\":[],"
+                + "\\\"risco_identificado\\\":false,\\\"tipo_risco\\\":null,"
+                + "\\\"nivel_risco\\\":\\\"baixo\\\",\\\"justificativa\\\":\\\"nada de anormal\\\","
+                + "\\\"acao_recomendada\\\":\\\"nenhuma\\\"}\"}]}";
+        service.analisar(alerta.getId());
+
+        var ultima = service.ultimaAnalise(alerta.getId());
+
+        assertThat(ultima).isPresent();
+        assertThat(ultima.get().situacao()).isEqualTo("segunda chamada");
+    }
+
+    @Test
+    void ultimaAnaliseReconstroiFalhaDeApiSemRespostaJson() {
+        var alerta = salvarAlertaComSnapshot("https://exemplo.com/foto.jpg");
+        statusDeResposta = 500;
+        service.analisar(alerta.getId());
+
+        var ultima = service.ultimaAnalise(alerta.getId());
+
+        assertThat(ultima).isPresent();
+        assertThat(ultima.get().status()).isEqualTo(AnalysisStatus.ERRO_API);
     }
 
     @Test
