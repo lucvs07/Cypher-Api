@@ -23,6 +23,18 @@ spring:
         write-dates-as-timestamps: false
 
 cypher:
+  llm:
+    provider: claude
+    prompt-version: v2
+    timeout-seconds: 20
+    claude:
+      api-key: chave-de-teste
+      model: claude-teste
+      base-url: http://127.0.0.1:0
+    gemini:
+      api-key: chave-de-teste
+      model: gemini-teste
+      base-url: http://127.0.0.1:0
   catalog:
     stations: []
     cameras: []
