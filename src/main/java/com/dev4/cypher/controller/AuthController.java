@@ -10,6 +10,7 @@ import com.dev4.cypher.repository.UsuarioRepository;
 import com.dev4.cypher.security.GestorAuthentication;
 import com.dev4.cypher.security.OperadorAuthentication;
 import com.dev4.cypher.security.SessionAuthenticator;
+import com.dev4.cypher.security.TenantContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -56,7 +57,8 @@ public class AuthController {
         if ("OPERADOR".equals(usuario.getPapel())) {
             sessionAuthenticator.autenticar(
                     new OperadorAuthentication(usuario.getEstacaoId(), usuario.getUsername()), request, response);
-            return ResponseEntity.ok(AuthResponse.operador(usuario.getEstacaoId(), usuario.getUsername()));
+            return ResponseEntity.ok(AuthResponse.operador(
+                    TenantContext.codigo(usuario.getEstacaoId()), usuario.getUsername()));
         }
         sessionAuthenticator.autenticar(new GestorAuthentication(usuario.getUsername()), request, response);
         return ResponseEntity.ok(AuthResponse.gestor(usuario.getUsername()));
@@ -71,7 +73,7 @@ public class AuthController {
                     .body(Map.of("erro", "Token de estacao invalido ou inativo"));
         }
         sessionAuthenticator.autenticar(new OperadorAuthentication(estacao.getId()), request, response);
-        return ResponseEntity.ok(AuthResponse.operador(estacao.getId()));
+        return ResponseEntity.ok(AuthResponse.operador(TenantContext.codigo(estacao.getId())));
     }
 
     @PostMapping("/logout")
@@ -92,8 +94,8 @@ public class AuthController {
         }
         if (auth instanceof OperadorAuthentication o) {
             return ResponseEntity.ok(o.getUsername() != null
-                    ? AuthResponse.operador(o.getEstacaoId(), o.getUsername())
-                    : AuthResponse.operador(o.getEstacaoId()));
+                    ? AuthResponse.operador(TenantContext.codigo(o.getEstacaoId()), o.getUsername())
+                    : AuthResponse.operador(TenantContext.codigo(o.getEstacaoId())));
         }
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }

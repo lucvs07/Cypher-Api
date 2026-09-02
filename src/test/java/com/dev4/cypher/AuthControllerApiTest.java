@@ -51,7 +51,7 @@ class AuthControllerApiTest {
     @BeforeEach
     void garantirGestorBootstrap() {
         if (!usuarios.existsByUsername(GESTOR_USERNAME)) {
-            usuarios.save(new Usuario(null, GESTOR_USERNAME, encoder.encode(GESTOR_PASSWORD), "GESTOR", null));
+            usuarios.save(new Usuario(null, GESTOR_USERNAME, encoder.encode(GESTOR_PASSWORD), "GESTOR", null, "demo"));
         }
     }
 
@@ -117,7 +117,7 @@ class AuthControllerApiTest {
         mvc.perform(post("/api/v1/stations").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"id\": \"EST-70\", \"nome\": \"Prensa 7\", \"setor\": \"estamparia\"}"));
-        String token = estacoes.findById("EST-70").orElseThrow().getToken();
+        String token = estacoes.findById("demo:EST-70").orElseThrow().getToken();
         MockHttpSession session = new MockHttpSession();
 
         mvc.perform(post("/api/v1/auth/login-estacao").session(session)
@@ -140,7 +140,7 @@ class AuthControllerApiTest {
         mvc.perform(post("/api/v1/stations").session(gestor)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"id\": \"EST-71\", \"nome\": \"Prensa 8\", \"setor\": \"estamparia\"}"));
-        String token = estacoes.findById("EST-71").orElseThrow().getToken();
+        String token = estacoes.findById("demo:EST-71").orElseThrow().getToken();
         mvc.perform(delete("/api/v1/stations/EST-71").session(gestor))
                 .andExpect(status().isNoContent());
 

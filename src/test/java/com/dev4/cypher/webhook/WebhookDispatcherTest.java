@@ -61,7 +61,7 @@ class WebhookDispatcherTest {
 
         assinaturas.save(new WebhookSubscription(null,
                 "http://127.0.0.1:" + servidor.getAddress().getPort() + "/hook",
-                "segredo", 3, true));
+                "segredo", 3, true, "demo"));
     }
 
     @AfterEach

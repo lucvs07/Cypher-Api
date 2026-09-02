@@ -33,8 +33,8 @@ class EquipeServiceTest {
     @BeforeEach
     void setUp() {
         service = new EquipeService(equipes, estacoes);
-        estacoes.save(new Estacao("EST-01", "Esteira", "montagem", true, "tok-EST-01"));
-        estacoes.saveAndFlush(new Estacao("EST-02", "Prensa", "estamparia", true, "tok-EST-02"));
+        estacoes.save(new Estacao("demo:EST-01", "Esteira", "montagem", true, "tok-EST-01", "demo"));
+        estacoes.saveAndFlush(new Estacao("demo:EST-02", "Prensa", "estamparia", true, "tok-EST-02", "demo"));
     }
 
     private TeamRequest equipeA() {
@@ -123,7 +123,7 @@ class EquipeServiceTest {
         service.criar(equipeA());
 
         assertThat(service.remover("EQ-01")).isTrue();
-        assertThat(equipes.findById("EQ-01")).isEmpty();
+        assertThat(equipes.findById("demo:EQ-01")).isEmpty();
     }
 
     @Test

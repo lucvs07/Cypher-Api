@@ -67,6 +67,7 @@ class SummaryApiTest {
         a.setEpiMissing(List.of());
         a.setDataHora(quando);
         a.setStatus(AlertaStatus.PENDENTE);
+        a.setEmpresaId("demo");
         return a;
     }
 

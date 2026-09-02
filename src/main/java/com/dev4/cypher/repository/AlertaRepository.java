@@ -20,6 +20,13 @@ public interface AlertaRepository extends JpaRepository<Alerta, Long> {
     /**
      * Busca com filtros opcionais. Cada parâmetro nulo desliga seu próprio
      * predicado, o que evita quatro métodos derivados quase idênticos.
+     *
+     * <p>{@code :estacaoId} chega já com o prefixo do tenant ({@code demo:EST-01});
+     * {@code Camera.id} também é prefixado, mas {@code Alerta.cameraId} ainda guarda
+     * o código puro nesta fase (a Tarefa 5 é quem o prefixa). Até lá, o subselect
+     * remove o prefixo de {@code c.id} para casar com {@code a.cameraId} — mesma
+     * operação de {@code TenantContext.codigo}, aqui em JPQL. A Tarefa 5 volta
+     * este subselect para {@code SELECT c.id}.
      */
     @Query("""
             SELECT a FROM Alerta a
@@ -28,7 +35,7 @@ public interface AlertaRepository extends JpaRepository<Alerta, Long> {
               AND (:severityMin IS NULL OR a.severidade >= :severityMin)
               AND (:status IS NULL OR a.status = :status)
               AND (:estacaoId IS NULL OR a.cameraId IN
-                    (SELECT c.id FROM Camera c WHERE c.estacaoId = :estacaoId))
+                    (SELECT SUBSTRING(c.id, LOCATE(':', c.id) + 1) FROM Camera c WHERE c.estacaoId = :estacaoId))
             """)
     Page<Alerta> buscar(@Param("since") OffsetDateTime since,
                         @Param("cameraId") String cameraId,

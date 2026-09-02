@@ -117,10 +117,10 @@ class IncidentSseServiceTest {
 
     @Test
     void broadcastSoAlcancaInscritosDaMesmaEstacao() {
-        cameras.saveAndFlush(new Camera("CAM-01", "C1", "EST-01",
-                "http://x/1", "f", true, "key-CAM-01"));
-        cameras.saveAndFlush(new Camera("CAM-02", "C2", "EST-02",
-                "http://x/2", "f", true, "key-CAM-02"));
+        cameras.saveAndFlush(new Camera("demo:CAM-01", "C1", "demo:EST-01",
+                "http://x/1", "f", true, "key-CAM-01", "demo"));
+        cameras.saveAndFlush(new Camera("demo:CAM-02", "C2", "demo:EST-02",
+                "http://x/2", "f", true, "key-CAM-02", "demo"));
         List<Object> recebidos = new ArrayList<>();
         SseEmitter operadorEst01 = new SseEmitter(0L) {
             @Override
@@ -128,7 +128,7 @@ class IncidentSseServiceTest {
                 recebidos.add(builder.build());
             }
         };
-        service.register(operadorEst01, "EST-01");
+        service.register(operadorEst01, "demo:EST-01");
 
         service.broadcast("incident", incidenteDe("CAM-02"));
         assertThat(recebidos).isEmpty();
@@ -139,8 +139,8 @@ class IncidentSseServiceTest {
 
     @Test
     void inscritoIrrestritoRecebeIncidenteDeQualquerEstacao() {
-        cameras.saveAndFlush(new Camera("CAM-01", "C1", "EST-01",
-                "http://x/1", "f", true, "key-CAM-01"));
+        cameras.saveAndFlush(new Camera("demo:CAM-01", "C1", "demo:EST-01",
+                "http://x/1", "f", true, "key-CAM-01", "demo"));
         List<Object> recebidos = new ArrayList<>();
         SseEmitter gestor = new SseEmitter(0L) {
             @Override

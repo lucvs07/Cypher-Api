@@ -25,7 +25,7 @@ public class Estacao {
 
     /** Identificador legível, ex.: EST-01. */
     @Id
-    @Column(length = 64)
+    @Column(length = 100)
     private String id;
 
     @Column(nullable = false, length = 120)
@@ -40,4 +40,8 @@ public class Estacao {
     /** Opaco, gerado no cadastro (`TokenGenerator`). Exposto só via `EstacaoAdminResponse` (Tarefa 5). */
     @Column(nullable = false, unique = true, length = 80)
     private String token;
+
+    /** Sempre o mesmo prefixo de {@code id} — coluna propria para permitir `findByEmpresaId...` sem parsear a chave. */
+    @Column(nullable = false, length = 30)
+    private String empresaId;
 }

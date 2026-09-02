@@ -30,7 +30,7 @@ public class Usuario {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 60)
+    @Column(nullable = false, unique = true, length = 90)
     private String username;
 
     /** BCrypt, nunca texto puro — gravado só pelo `PasswordEncoder` (Tarefa 1). */
@@ -41,6 +41,9 @@ public class Usuario {
     private String papel;
 
     /** Só preenchido quando {@code papel} é {@code OPERADOR}. */
-    @Column(length = 20)
+    @Column(length = 100)
     private String estacaoId;
+
+    @Column(nullable = false, length = 30)
+    private String empresaId;
 }

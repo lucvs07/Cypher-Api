@@ -2,6 +2,7 @@ package com.dev4.cypher.sse;
 
 import com.dev4.cypher.dto.IncidentResponse;
 import com.dev4.cypher.repository.CameraRepository;
+import com.dev4.cypher.security.TenantContext;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -57,7 +58,7 @@ public class IncidentSseService {
     }
 
     public void broadcast(String eventName, IncidentResponse incident) {
-        String estacaoDoIncidente = cameras.findById(incident.cameraId())
+        String estacaoDoIncidente = cameras.findById(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, incident.cameraId()))
                 .map(c -> c.getEstacaoId())
                 .orElse(null);
         enviarAosQueEnxergam(estacaoDoIncidente, SseEmitter.event().name(eventName).data(incident));

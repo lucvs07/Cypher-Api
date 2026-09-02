@@ -60,9 +60,9 @@ class IncidentIngestionApiTest {
      */
     @BeforeEach
     void garantirCameraDeIngestao() {
-        if (cameras.findById("CAM-INGESTAO-TESTE").isEmpty()) {
-            cameras.saveAndFlush(new Camera("CAM-INGESTAO-TESTE", "Camera de teste", "EST-INGESTAO-TESTE",
-                    "http://127.0.0.1:8999/stream", "f", true, CHAVE));
+        if (cameras.findById("demo:CAM-INGESTAO-TESTE").isEmpty()) {
+            cameras.saveAndFlush(new Camera("demo:CAM-INGESTAO-TESTE", "Camera de teste", "demo:EST-INGESTAO-TESTE",
+                    "http://127.0.0.1:8999/stream", "f", true, CHAVE, "demo"));
         }
     }
 

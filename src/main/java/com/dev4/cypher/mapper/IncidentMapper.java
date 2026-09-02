@@ -6,6 +6,7 @@ import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.AlertaNivel;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.model.AlertaTipo;
+import com.dev4.cypher.security.TenantContext;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -39,6 +40,7 @@ public class IncidentMapper {
         a.setDescricao(descricaoDe(req.type(), req.reason(), req.cameraId()));
         // Status é sempre atribuído pelo servidor; nunca vem do cliente.
         a.setStatus(AlertaStatus.PENDENTE);
+        a.setEmpresaId(TenantContext.DEMO_EMPRESA_ID);
         return a;
     }
 

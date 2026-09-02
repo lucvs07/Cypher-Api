@@ -38,10 +38,10 @@ class CatalogSeederTest {
 
     @Test
     void populaCatalogoAPartirDaConfiguracao() {
-        assertThat(estacoes.findById("EST-01")).isPresent();
+        assertThat(estacoes.findById("demo:EST-01")).isPresent();
 
-        Camera cam = cameras.findById("CAM-01").orElseThrow();
-        assertThat(cam.getEstacaoId()).isEqualTo("EST-01");
+        Camera cam = cameras.findById("demo:CAM-01").orElseThrow();
+        assertThat(cam.getEstacaoId()).isEqualTo("demo:EST-01");
         assertThat(cam.getStreamUrl()).isEqualTo("http://127.0.0.1:8090/stream");
         assertThat(cam.isAtiva()).isTrue();
     }
@@ -49,26 +49,26 @@ class CatalogSeederTest {
     @Test
     void naoSobrescreveEdicaoFeitaPelaInterface() {
         // Simula o que a interface faria: renomear a estação semeada.
-        Estacao editada = estacoes.findById("EST-01").orElseThrow();
+        Estacao editada = estacoes.findById("demo:EST-01").orElseThrow();
         editada.setNome("Esteira 1 - renomeada");
         estacoes.saveAndFlush(editada);
 
         // Reiniciar a aplicação executaria o seeder de novo.
         seeder.run(null);
 
-        assertThat(estacoes.findById("EST-01").orElseThrow().getNome())
+        assertThat(estacoes.findById("demo:EST-01").orElseThrow().getNome())
                 .isEqualTo("Esteira 1 - renomeada");
     }
 
     @Test
     void naoReativaRegistroQueAInterfaceDesativou() {
-        Camera desativada = cameras.findById("CAM-01").orElseThrow();
+        Camera desativada = cameras.findById("demo:CAM-01").orElseThrow();
         desativada.setAtiva(false);
         cameras.saveAndFlush(desativada);
 
         seeder.run(null);
 
-        assertThat(cameras.findById("CAM-01").orElseThrow().isAtiva()).isFalse();
+        assertThat(cameras.findById("demo:CAM-01").orElseThrow().isAtiva()).isFalse();
     }
 
     @Test

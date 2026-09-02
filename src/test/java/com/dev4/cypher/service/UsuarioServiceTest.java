@@ -35,7 +35,7 @@ class UsuarioServiceTest {
     @BeforeEach
     void setUp() {
         service = new UsuarioService(usuarios, estacoes, encoder);
-        estacoes.saveAndFlush(new Estacao("EST-01", "Estacao 1", "montagem", true, "tok-1"));
+        estacoes.saveAndFlush(new Estacao("demo:EST-01", "Estacao 1", "montagem", true, "tok-1", "demo"));
     }
 
     private UserRequest gestor2() {

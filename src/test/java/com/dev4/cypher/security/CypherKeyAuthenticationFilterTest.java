@@ -39,8 +39,8 @@ class CypherKeyAuthenticationFilterTest {
 
     @Test
     void chaveValidaAutenticaComoRolePipeline() throws Exception {
-        cameras.saveAndFlush(new Camera("CAM-80", "Frontal", "EST-80",
-                "http://127.0.0.1:8180/stream", "rtsp://x", true, "chave-valida"));
+        cameras.saveAndFlush(new Camera("demo:CAM-80", "Frontal", "demo:EST-80",
+                "http://127.0.0.1:8180/stream", "rtsp://x", true, "chave-valida", "demo"));
         CypherKeyAuthenticationFilter filtro = new CypherKeyAuthenticationFilter(cameras);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader(CypherKeyAuthenticationFilter.HEADER, "chave-valida");
@@ -52,7 +52,7 @@ class CypherKeyAuthenticationFilterTest {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         assertThat(auth).isInstanceOf(PipelineAuthentication.class);
-        assertThat(((PipelineAuthentication) auth).getCameraId()).isEqualTo("CAM-80");
+        assertThat(((PipelineAuthentication) auth).getCameraId()).isEqualTo("demo:CAM-80");
         assertThat(auth.getAuthorities()).extracting(Object::toString).containsExactly("ROLE_PIPELINE");
         assertThat(proximoFiltroChamado[0]).isTrue();
     }
@@ -113,8 +113,8 @@ class CypherKeyAuthenticationFilterTest {
 
     @Test
     void ingestaoComChaveValidaSeguePraFrente() throws Exception {
-        cameras.saveAndFlush(new Camera("CAM-81", "Frontal", "EST-81",
-                "http://127.0.0.1:8181/stream", "rtsp://x", true, "chave-ingestao-valida"));
+        cameras.saveAndFlush(new Camera("demo:CAM-81", "Frontal", "demo:EST-81",
+                "http://127.0.0.1:8181/stream", "rtsp://x", true, "chave-ingestao-valida", "demo"));
         CypherKeyAuthenticationFilter filtro = new CypherKeyAuthenticationFilter(cameras);
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/incidents");
         request.addHeader(CypherKeyAuthenticationFilter.HEADER, "chave-ingestao-valida");

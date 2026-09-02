@@ -6,6 +6,7 @@ import com.dev4.cypher.dto.UsuarioResponse;
 import com.dev4.cypher.model.Usuario;
 import com.dev4.cypher.repository.EstacaoRepository;
 import com.dev4.cypher.repository.UsuarioRepository;
+import com.dev4.cypher.security.TenantContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -41,7 +42,8 @@ public class UsuarioService {
 
     @Transactional
     public UsuarioResponse criar(UserRequest req) {
-        validarPapelEEstacao(req.papel(), req.estacaoId());
+        String estacaoIdPrefixado = prefixarEstacao(req.papel(), req.estacaoId());
+        validarPapelEEstacao(req.papel(), estacaoIdPrefixado);
         if (usuarios.existsByUsername(req.username())) {
             throw new CatalogValidationException(HttpStatus.CONFLICT,
                     "Usuario ja cadastrado: " + req.username());
@@ -50,14 +52,15 @@ public class UsuarioService {
             throw new CatalogValidationException(HttpStatus.BAD_REQUEST,
                     "password e obrigatoria no cadastro");
         }
-        String estacaoId = "OPERADOR".equals(req.papel()) ? req.estacaoId() : null;
-        Usuario novo = new Usuario(null, req.username(), encoder.encode(req.password()), req.papel(), estacaoId);
+        Usuario novo = new Usuario(null, req.username(), encoder.encode(req.password()), req.papel(),
+                estacaoIdPrefixado, TenantContext.DEMO_EMPRESA_ID);
         return toResponse(usuarios.saveAndFlush(novo));
     }
 
     @Transactional
     public Optional<UsuarioResponse> atualizar(String username, UserRequest req) {
-        validarPapelEEstacao(req.papel(), req.estacaoId());
+        String estacaoIdPrefixado = prefixarEstacao(req.papel(), req.estacaoId());
+        validarPapelEEstacao(req.papel(), estacaoIdPrefixado);
         return usuarios.findByUsername(username).map(usuario -> {
             if (!usuario.getUsername().equals(req.username()) && usuarios.existsByUsername(req.username())) {
                 throw new CatalogValidationException(HttpStatus.CONFLICT,
@@ -65,13 +68,19 @@ public class UsuarioService {
             }
             usuario.setUsername(req.username());
             usuario.setPapel(req.papel());
-            usuario.setEstacaoId("OPERADOR".equals(req.papel()) ? req.estacaoId() : null);
+            usuario.setEstacaoId(estacaoIdPrefixado);
             // password ausente/vazia = nao redefinir (mesmo padrao de StationRequest.ativa == null).
             if (req.password() != null && !req.password().isBlank()) {
                 usuario.setPasswordHash(encoder.encode(req.password()));
             }
             return toResponse(usuarios.saveAndFlush(usuario));
         });
+    }
+
+    /** Prefixa {@code estacaoId} com o tenant unico, so quando papel OPERADOR e o valor foi informado. */
+    private String prefixarEstacao(String papel, String estacaoId) {
+        return "OPERADOR".equals(papel) && estacaoId != null && !estacaoId.isBlank()
+                ? TenantContext.key(TenantContext.DEMO_EMPRESA_ID, estacaoId) : null;
     }
 
     @Transactional
@@ -83,24 +92,25 @@ public class UsuarioService {
         return true;
     }
 
-    private void validarPapelEEstacao(String papel, String estacaoId) {
+    private void validarPapelEEstacao(String papel, String estacaoIdPrefixado) {
         if (!PAPEIS_VALIDOS.contains(papel)) {
             throw new CatalogValidationException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "papel deve ser GESTOR ou OPERADOR: " + papel);
         }
         if ("OPERADOR".equals(papel)) {
-            if (estacaoId == null || estacaoId.isBlank()) {
+            if (estacaoIdPrefixado == null) {
                 throw new CatalogValidationException(HttpStatus.UNPROCESSABLE_ENTITY,
                         "estacaoId e obrigatorio para OPERADOR");
             }
-            if (!estacoes.existsById(estacaoId)) {
+            if (!estacoes.existsById(estacaoIdPrefixado)) {
                 throw new CatalogValidationException(HttpStatus.UNPROCESSABLE_ENTITY,
-                        "estacao inexistente: " + estacaoId);
+                        "estacao inexistente: " + TenantContext.codigo(estacaoIdPrefixado));
             }
         }
     }
 
     private UsuarioResponse toResponse(Usuario u) {
-        return new UsuarioResponse(u.getId(), u.getUsername(), u.getPapel(), u.getEstacaoId());
+        String estacaoId = u.getEstacaoId() == null ? null : TenantContext.codigo(u.getEstacaoId());
+        return new UsuarioResponse(u.getId(), u.getUsername(), u.getPapel(), estacaoId);
     }
 }

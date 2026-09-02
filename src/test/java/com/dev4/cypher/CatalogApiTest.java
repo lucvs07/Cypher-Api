@@ -97,6 +97,7 @@ class CatalogApiTest {
         incidente.setEpiMissing(List.of());
         incidente.setDataHora(OffsetDateTime.now());
         incidente.setStatus(AlertaStatus.PENDENTE);
+        incidente.setEmpresaId("demo");
         alertas.saveAndFlush(incidente);
 
         mvc.perform(delete("/api/v1/cameras/CAM-01").session(gestor)).andExpect(status().isNoContent());

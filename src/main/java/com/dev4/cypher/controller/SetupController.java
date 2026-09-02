@@ -73,7 +73,8 @@ public class SetupController {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("erro", "Setup ja concluido"));
         }
         Usuario gestor = usuarios.saveAndFlush(
-                new Usuario(null, req.username(), encoder.encode(req.password()), "GESTOR", null));
+                new Usuario(null, req.username(), encoder.encode(req.password()), "GESTOR", null,
+                        com.dev4.cypher.security.TenantContext.DEMO_EMPRESA_ID));
         sessionAuthenticator.autenticar(new GestorAuthentication(gestor.getUsername()), request, response);
         return ResponseEntity.ok(AuthResponse.gestor(gestor.getUsername()));
     }

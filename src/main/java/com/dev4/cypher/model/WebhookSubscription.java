@@ -31,4 +31,7 @@ public class WebhookSubscription {
 
     @Column(nullable = false)
     private boolean ativo;
+
+    @Column(nullable = false, length = 30)
+    private String empresaId;
 }

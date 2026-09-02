@@ -10,6 +10,7 @@ import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.repository.CameraRepository;
 import com.dev4.cypher.security.OperadorAuthentication;
 import com.dev4.cypher.security.PipelineAuthentication;
+import com.dev4.cypher.security.TenantContext;
 import com.dev4.cypher.service.IncidentService;
 import com.dev4.cypher.sse.IncidentSseService;
 import jakarta.validation.Valid;
@@ -167,7 +168,7 @@ public class IncidentController {
         if (!(auth instanceof OperadorAuthentication operador)) {
             return false;
         }
-        return cameras.findById(cameraId)
+        return cameras.findById(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, cameraId))
                 .map(c -> !c.getEstacaoId().equals(operador.getEstacaoId()))
                 .orElse(true);
     }
@@ -183,6 +184,6 @@ public class IncidentController {
     private boolean chaveDeOutraCamera(String cameraIdDoAlvo) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return auth instanceof PipelineAuthentication pipeline
-                && !pipeline.getCameraId().equals(cameraIdDoAlvo);
+                && !pipeline.getCameraId().equals(TenantContext.key(TenantContext.DEMO_EMPRESA_ID, cameraIdDoAlvo));
     }
 }

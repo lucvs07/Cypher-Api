@@ -116,6 +116,7 @@ class LlmAnalysisServiceTest {
         alerta.setSnapshotUrl(snapshotUrl);
         alerta.setDataHora(OffsetDateTime.now());
         alerta.setStatus(AlertaStatus.PENDENTE);
+        alerta.setEmpresaId("demo");
         return alertas.save(alerta);
     }
 

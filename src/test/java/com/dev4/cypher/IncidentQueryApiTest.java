@@ -70,13 +70,13 @@ class IncidentQueryApiTest {
         // única câmera fictícia "reaproveitada": achado de segurança da
         // revisão final trava a chave por câmera, então cada incidente
         // precisa ser ingerido com a chave da câmera que ele diz ser.
-        if (cameras.findById("CAM-Q1").isEmpty()) {
-            cameras.saveAndFlush(new Camera("CAM-Q1", "Camera de teste 1",
-                    "EST-INGESTAO-TESTE", "http://127.0.0.1:8999/stream", "f", true, CHAVE_CAM01));
+        if (cameras.findById("demo:CAM-Q1").isEmpty()) {
+            cameras.saveAndFlush(new Camera("demo:CAM-Q1", "Camera de teste 1",
+                    "demo:EST-INGESTAO-TESTE", "http://127.0.0.1:8999/stream", "f", true, CHAVE_CAM01, "demo"));
         }
-        if (cameras.findById("CAM-Q2").isEmpty()) {
-            cameras.saveAndFlush(new Camera("CAM-Q2", "Camera de teste 2",
-                    "EST-INGESTAO-TESTE", "http://127.0.0.1:8998/stream", "f", true, CHAVE_CAM02));
+        if (cameras.findById("demo:CAM-Q2").isEmpty()) {
+            cameras.saveAndFlush(new Camera("demo:CAM-Q2", "Camera de teste 2",
+                    "demo:EST-INGESTAO-TESTE", "http://127.0.0.1:8998/stream", "f", true, CHAVE_CAM02, "demo"));
         }
         repository.deleteAll();
         mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE_CAM01)

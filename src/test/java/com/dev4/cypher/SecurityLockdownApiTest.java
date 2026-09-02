@@ -137,7 +137,7 @@ class SecurityLockdownApiTest {
                         .andReturn().getResponse().getContentAsString(),
                 "$.token");
         MockHttpSession operador = loginOperador(mvc, token);
-        String chave = cameras.findById("CAM-98").orElseThrow().getApiKey();
+        String chave = cameras.findById("demo:CAM-98").orElseThrow().getApiKey();
 
         mvc.perform(get("/api/v1/incidents").session(operador).header(HEADER, chave))
                 .andExpect(status().isForbidden());

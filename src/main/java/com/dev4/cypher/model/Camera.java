@@ -28,13 +28,13 @@ public class Camera {
 
     /** Identificador legível, ex.: CAM-01. */
     @Id
-    @Column(length = 64)
+    @Column(length = 100)
     private String id;
 
     @Column(nullable = false, length = 120)
     private String nome;
 
-    @Column(nullable = false, length = 64)
+    @Column(nullable = false, length = 100)
     private String estacaoId;
 
     @Column(length = 500)
@@ -61,4 +61,7 @@ public class Camera {
      */
     @Column(nullable = false, unique = true, length = 80)
     private String apiKey;
+
+    @Column(nullable = false, length = 30)
+    private String empresaId;
 }

@@ -98,7 +98,7 @@ class CatalogWriteServiceTest {
         service.updateStation("EST-01",
                 new StationRequest("EST-01", "Esteira", "montagem", null));
 
-        assertThat(estacoes.findById("EST-01").orElseThrow().isAtiva()).isFalse();
+        assertThat(estacoes.findById("demo:EST-01").orElseThrow().isAtiva()).isFalse();
     }
 
     @Test
@@ -109,7 +109,7 @@ class CatalogWriteServiceTest {
         service.updateStation("EST-01",
                 new StationRequest("EST-01", "Esteira", "montagem", true));
 
-        assertThat(estacoes.findById("EST-01").orElseThrow().isAtiva()).isTrue();
+        assertThat(estacoes.findById("demo:EST-01").orElseThrow().isAtiva()).isTrue();
     }
 
     @Test
@@ -118,8 +118,8 @@ class CatalogWriteServiceTest {
 
         assertThat(service.deactivateStation("EST-01")).isTrue();
 
-        assertThat(estacoes.findById("EST-01")).isPresent();
-        assertThat(estacoes.findById("EST-01").orElseThrow().isAtiva()).isFalse();
+        assertThat(estacoes.findById("demo:EST-01")).isPresent();
+        assertThat(estacoes.findById("demo:EST-01").orElseThrow().isAtiva()).isFalse();
     }
 
     @Test
@@ -142,10 +142,10 @@ class CatalogWriteServiceTest {
     @Test
     void estacaoAtivaNaoMostraCameraDesativada() {
         service.createStation(esteira());
-        cameras.save(new Camera("CAM-01", "Frontal", "EST-01",
-                "http://127.0.0.1:8090/stream", "rtsp://a", true, "key-CAM-01"));
-        cameras.saveAndFlush(new Camera("CAM-02", "Antiga", "EST-01",
-                "http://127.0.0.1:8091/stream", "rtsp://b", false, "key-CAM-02"));
+        cameras.save(new Camera("demo:CAM-01", "Frontal", "demo:EST-01",
+                "http://127.0.0.1:8090/stream", "rtsp://a", true, "key-CAM-01", "demo"));
+        cameras.saveAndFlush(new Camera("demo:CAM-02", "Antiga", "demo:EST-01",
+                "http://127.0.0.1:8091/stream", "rtsp://b", false, "key-CAM-02", "demo"));
 
         StationResponse estacao = service.stations().get(0);
 
@@ -155,10 +155,10 @@ class CatalogWriteServiceTest {
 
     @Test
     void listaDeCamerasOmiteDesativadas() {
-        cameras.save(new Camera("CAM-01", "Frontal", "EST-01",
-                "http://127.0.0.1:8090/stream", "rtsp://a", true, "key-CAM-01"));
-        cameras.saveAndFlush(new Camera("CAM-02", "Antiga", "EST-01",
-                "http://127.0.0.1:8091/stream", "rtsp://b", false, "key-CAM-02"));
+        cameras.save(new Camera("demo:CAM-01", "Frontal", "demo:EST-01",
+                "http://127.0.0.1:8090/stream", "rtsp://a", true, "key-CAM-01", "demo"));
+        cameras.saveAndFlush(new Camera("demo:CAM-02", "Antiga", "demo:EST-01",
+                "http://127.0.0.1:8091/stream", "rtsp://b", false, "key-CAM-02", "demo"));
 
         assertThat(service.cameras()).hasSize(1);
     }
