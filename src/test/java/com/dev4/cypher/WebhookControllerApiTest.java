@@ -21,6 +21,9 @@ class WebhookControllerApiTest {
     @Autowired
     private MockMvc mvc;
 
+    @Autowired
+    private com.dev4.cypher.repository.WebhookDeliveryRepository entregas;
+
     @Test
     void cadastraListaEEditaUmAssinante() throws Exception {
         MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
@@ -125,6 +128,44 @@ class WebhookControllerApiTest {
                 .andExpect(status().isNotFound());
 
         mvc.perform(delete("/api/v1/webhooks/" + idDaAcme).session(sessaoGlobex))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void historicoDeEntregasEhPaginadoEEscopadoPorEmpresa() throws Exception {
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        String corpo = mvc.perform(post("/api/v1/webhooks").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\": \"https://exemplo.com/historico\", \"secret\": \"x\", "
+                                + "\"minSeverity\": 0, \"ativo\": true}"))
+                .andReturn().getResponse().getContentAsString();
+        Long id = ((Number) com.jayway.jsonpath.JsonPath.read(corpo, "$.id")).longValue();
+
+        entregas.saveAndFlush(new com.dev4.cypher.model.WebhookDelivery(null, id, "incident-1",
+                "{}", com.dev4.cypher.model.DeliveryStatus.ENTREGUE, 1, null, null));
+        entregas.saveAndFlush(new com.dev4.cypher.model.WebhookDelivery(null, id, "incident-2",
+                "{}", com.dev4.cypher.model.DeliveryStatus.PENDENTE, 1, "timeout", null));
+
+        mvc.perform(get("/api/v1/webhooks/" + id + "/deliveries").session(session)
+                        .param("page", "0").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    @Test
+    void historicoDeAssinanteDeOutraEmpresaDevolve404() throws Exception {
+        MockHttpSession sessaoAcme = setupEmpresa("acme-hist", "Acme");
+        MockHttpSession sessaoGlobex = setupEmpresa("globex-hist", "Globex");
+
+        String corpo = mvc.perform(post("/api/v1/webhooks").session(sessaoAcme)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\": \"https://exemplo.com/hist-acme\", \"secret\": \"x\", "
+                                + "\"minSeverity\": 0, \"ativo\": true}"))
+                .andReturn().getResponse().getContentAsString();
+        Number id = com.jayway.jsonpath.JsonPath.read(corpo, "$.id");
+
+        mvc.perform(get("/api/v1/webhooks/" + id + "/deliveries").session(sessaoGlobex))
                 .andExpect(status().isNotFound());
     }
 
