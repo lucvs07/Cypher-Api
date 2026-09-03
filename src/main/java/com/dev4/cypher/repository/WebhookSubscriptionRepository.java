@@ -9,5 +9,5 @@ import java.util.List;
 @Repository
 public interface WebhookSubscriptionRepository extends JpaRepository<WebhookSubscription, Long> {
 
-    List<WebhookSubscription> findByAtivoTrue();
+    List<WebhookSubscription> findByEmpresaIdAndAtivoTrue(String empresaId);
 }
