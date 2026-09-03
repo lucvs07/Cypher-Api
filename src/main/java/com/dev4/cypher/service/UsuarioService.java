@@ -45,7 +45,7 @@ public class UsuarioService {
         String empresaId = TenantContext.currentEmpresaId();
         String estacaoIdPrefixado = prefixarEstacao(req.papel(), req.estacaoId());
         validarPapelEEstacao(req.papel(), estacaoIdPrefixado);
-        String username = req.username() + "@" + empresaId;
+        String username = TenantContext.username(req.username(), empresaId);
         if (usuarios.existsByUsername(username)) {
             throw new CatalogValidationException(HttpStatus.CONFLICT,
                     "Usuario ja cadastrado: " + username);
@@ -64,11 +64,16 @@ public class UsuarioService {
         String empresaId = TenantContext.currentEmpresaId();
         String estacaoIdPrefixado = prefixarEstacao(req.papel(), req.estacaoId());
         validarPapelEEstacao(req.papel(), estacaoIdPrefixado);
-        if (!req.username().endsWith("@" + empresaId)) {
+        int arroba = req.username().lastIndexOf('@');
+        String nomeNovo = arroba < 0 ? req.username() : req.username().substring(0, arroba);
+        if (!TenantContext.username(nomeNovo, empresaId).equals(req.username())) {
             throw new CatalogValidationException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "username deve terminar em @" + empresaId);
         }
-        return usuarios.findByUsername(username).map(usuario -> {
+        // Fronteira de tenant: o alvo e resolvido pelo par (username, empresaId atual),
+        // nunca so por username — senao um gestor de outra empresa poderia editar/assumir
+        // um usuario de outro tenant so por saber o username completo dele.
+        return usuarios.findByUsernameAndEmpresaId(username, empresaId).map(usuario -> {
             if (!usuario.getUsername().equals(req.username()) && usuarios.existsByUsername(req.username())) {
                 throw new CatalogValidationException(HttpStatus.CONFLICT,
                         "Usuario ja cadastrado: " + req.username());
@@ -92,10 +97,13 @@ public class UsuarioService {
 
     @Transactional
     public boolean remover(String username) {
-        if (!usuarios.existsByUsername(username)) {
+        String empresaId = TenantContext.currentEmpresaId();
+        // Mesma fronteira de tenant de atualizar(): sem o filtro por empresaId,
+        // um gestor de outra empresa poderia apagar um usuario de outro tenant.
+        if (!usuarios.existsByUsernameAndEmpresaId(username, empresaId)) {
             return false;
         }
-        usuarios.deleteByUsername(username);
+        usuarios.deleteByUsernameAndEmpresaId(username, empresaId);
         return true;
     }
 

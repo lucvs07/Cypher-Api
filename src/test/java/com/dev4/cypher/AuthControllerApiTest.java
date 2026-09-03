@@ -1,6 +1,8 @@
 package com.dev4.cypher;
 
+import com.dev4.cypher.model.Empresa;
 import com.dev4.cypher.model.Usuario;
+import com.dev4.cypher.repository.EmpresaRepository;
 import com.dev4.cypher.repository.EstacaoRepository;
 import com.dev4.cypher.repository.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +39,9 @@ class AuthControllerApiTest {
     private UsuarioRepository usuarios;
 
     @Autowired
+    private EmpresaRepository empresas;
+
+    @Autowired
     private PasswordEncoder encoder;
 
     /**
@@ -46,10 +51,18 @@ class AuthControllerApiTest {
      * evita duplicar (`UNIQUE` em `username`) se outra classe do mesmo
      * contexto compartilhado já o criou primeiro; sempre o mesmo username
      * (`GESTOR_USERNAME`) que `AuthTestSupport` usa, então os dois caminhos
-     * nunca colidem em usernames diferentes.
+     * nunca colidem em usernames diferentes. A `Empresa "acme-test"` também
+     * precisa existir aqui (não só o `Usuario`) — sem ela, `$.empresaNome`
+     * fica `null` e `POST /api/v1/setup` (chamado por `loginGestorBootstrap`
+     * de outras classes do mesmo contexto) não vê `empresas.existsById`
+     * como `true`, tentando recriar o gestor e batendo no `UNIQUE` de
+     * `username` (500 em vez do 409 esperado).
      */
     @BeforeEach
     void garantirGestorBootstrap() {
+        if (!empresas.existsById("acme-test")) {
+            empresas.save(new Empresa("acme-test", "Acme Test", true));
+        }
         if (!usuarios.existsByUsername(GESTOR_USERNAME)) {
             usuarios.save(new Usuario(null, GESTOR_USERNAME, encoder.encode(GESTOR_PASSWORD), "GESTOR", null, "acme-test"));
         }
@@ -66,6 +79,8 @@ class AuthControllerApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.papel").value("GESTOR"))
                 .andExpect(jsonPath("$.username").value(GESTOR_USERNAME))
+                .andExpect(jsonPath("$.empresaId").value("acme-test"))
+                .andExpect(jsonPath("$.empresaNome").value("Acme Test"))
                 .andExpect(jsonPath("$.estacaoId").doesNotExist());
 
         // A prova real de que a sessão persistiu: uma SEGUNDA requisição, com o
@@ -73,7 +88,9 @@ class AuthControllerApiTest {
         mvc.perform(get("/api/v1/auth/me").session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.papel").value("GESTOR"))
-                .andExpect(jsonPath("$.username").value(GESTOR_USERNAME));
+                .andExpect(jsonPath("$.username").value(GESTOR_USERNAME))
+                .andExpect(jsonPath("$.empresaId").value("acme-test"))
+                .andExpect(jsonPath("$.empresaNome").value("Acme Test"));
     }
 
     @Test
@@ -126,12 +143,16 @@ class AuthControllerApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.papel").value("OPERADOR"))
                 .andExpect(jsonPath("$.estacaoId").value("EST-70"))
-                .andExpect(jsonPath("$.username").doesNotExist());
+                .andExpect(jsonPath("$.username").doesNotExist())
+                .andExpect(jsonPath("$.empresaId").value("acme-test"))
+                .andExpect(jsonPath("$.empresaNome").value("Acme Test"));
 
         mvc.perform(get("/api/v1/auth/me").session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.papel").value("OPERADOR"))
-                .andExpect(jsonPath("$.estacaoId").value("EST-70"));
+                .andExpect(jsonPath("$.estacaoId").value("EST-70"))
+                .andExpect(jsonPath("$.empresaId").value("acme-test"))
+                .andExpect(jsonPath("$.empresaNome").value("Acme Test"));
     }
 
     @Test
@@ -181,13 +202,17 @@ class AuthControllerApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.papel").value("OPERADOR"))
                 .andExpect(jsonPath("$.estacaoId").value("EST-72"))
-                .andExpect(jsonPath("$.username").value(usernameCompleto));
+                .andExpect(jsonPath("$.username").value(usernameCompleto))
+                .andExpect(jsonPath("$.empresaId").value("acme-test"))
+                .andExpect(jsonPath("$.empresaNome").value("Acme Test"));
 
         mvc.perform(get("/api/v1/auth/me").session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.papel").value("OPERADOR"))
                 .andExpect(jsonPath("$.estacaoId").value("EST-72"))
-                .andExpect(jsonPath("$.username").value(usernameCompleto));
+                .andExpect(jsonPath("$.username").value(usernameCompleto))
+                .andExpect(jsonPath("$.empresaId").value("acme-test"))
+                .andExpect(jsonPath("$.empresaNome").value("Acme Test"));
     }
 
     @Test

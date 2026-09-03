@@ -19,6 +19,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Transactional
@@ -133,5 +134,33 @@ class UserControllerApiTest {
     @Test
     void removerInexistenteDevolve404() throws Exception {
         mvc.perform(delete("/api/v1/users/nao-existe").session(gestor)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void putEDeleteDeUsuarioDeOutroTenantDevolvem404ENaoAlteramAVitima() throws Exception {
+        // Gestor de outro tenant, com uma vitima "victim@outro-tenant".
+        mvc.perform(post("/api/v1/setup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"victim\", \"password\": \"victimpass123\", "
+                                + "\"empresaId\": \"outro-tenant\", \"empresaNome\": \"Outro Tenant\"}"))
+                .andExpect(status().isOk());
+        String hashOriginal = usuarios.findByUsername("victim@outro-tenant").orElseThrow().getPasswordHash();
+
+        // gestor@acme-test tenta assumir a conta de victim@outro-tenant: o
+        // corpo manda um username @acme-test (passaria no antigo endsWith
+        // ad-hoc), mas o alvo na URL pertence a outro tenant.
+        mvc.perform(put("/api/v1/users/{username}", "victim@outro-tenant").session(gestor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"victim@acme-test\", \"papel\": \"GESTOR\", \"password\": \"hacked123\"}"))
+                .andExpect(status().isNotFound());
+
+        var vitimaAposPut = usuarios.findByUsername("victim@outro-tenant");
+        assertThat(vitimaAposPut).isPresent();
+        assertThat(vitimaAposPut.get().getPasswordHash()).isEqualTo(hashOriginal);
+
+        mvc.perform(delete("/api/v1/users/{username}", "victim@outro-tenant").session(gestor))
+                .andExpect(status().isNotFound());
+
+        assertThat(usuarios.findByUsername("victim@outro-tenant")).isPresent();
     }
 }

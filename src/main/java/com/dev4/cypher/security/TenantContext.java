@@ -32,6 +32,11 @@ public final class TenantContext {
         return empresaId + ":" + codigo;
     }
 
+    /** Compoe o username "nome@empresaId" — a mesma regra em todo call site que cria/edita um Usuario. */
+    public static String username(String nome, String empresaId) {
+        return nome + "@" + empresaId;
+    }
+
     public static String key(String codigo) {
         return key(currentEmpresaId(), codigo);
     }

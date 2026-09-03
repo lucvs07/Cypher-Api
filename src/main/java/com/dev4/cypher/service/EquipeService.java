@@ -74,8 +74,9 @@ public class EquipeService {
     }
 
     private List<String> prefixar(List<String> estacaoIds) {
+        String empresaId = TenantContext.currentEmpresaId();
         return estacaoIds.stream()
-                .map(id -> TenantContext.key(id))
+                .map(id -> TenantContext.key(empresaId, id))
                 .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
     }
 

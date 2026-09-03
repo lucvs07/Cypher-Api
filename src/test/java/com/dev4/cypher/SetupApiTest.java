@@ -1,7 +1,6 @@
 package com.dev4.cypher;
 
 import com.dev4.cypher.repository.EmpresaRepository;
-import com.dev4.cypher.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -29,9 +28,6 @@ class SetupApiTest {
 
     @Autowired
     private MockMvc mvc;
-
-    @Autowired
-    private UsuarioRepository usuarios;
 
     @Autowired
     private EmpresaRepository empresas;

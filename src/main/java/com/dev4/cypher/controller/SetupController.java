@@ -8,6 +8,7 @@ import com.dev4.cypher.repository.EmpresaRepository;
 import com.dev4.cypher.repository.UsuarioRepository;
 import com.dev4.cypher.security.GestorAuthentication;
 import com.dev4.cypher.security.SessionAuthenticator;
+import com.dev4.cypher.security.TenantContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -54,7 +55,7 @@ public class SetupController {
         }
         empresas.saveAndFlush(new Empresa(req.empresaId(), req.empresaNome(), true));
 
-        String username = req.username() + "@" + req.empresaId();
+        String username = TenantContext.username(req.username(), req.empresaId());
         Usuario gestor = usuarios.saveAndFlush(
                 new Usuario(null, username, encoder.encode(req.password()), "GESTOR", null, req.empresaId()));
         sessionAuthenticator.autenticar(
