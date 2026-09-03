@@ -24,6 +24,7 @@ import java.util.List;
 
 import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -147,5 +148,73 @@ class SummaryApiTest {
         mvc.perform(get("/api/v1/summary").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ultimosSeteDias.length()").value(7));
+    }
+
+    /**
+     * Achado carregado da Tarefa 4 (confirmado real nesta revisão): antes
+     * desta correção, {@code SummaryService.build()} chamava
+     * {@code repository.findAll()} sem filtro de tenant — todo GESTOR via
+     * `/summary` enxergava as contagens e o heatmap de QUALQUER empresa.
+     *
+     * <p>O incidente de "outro-tenant" usa {@code cameraId} JÁ PREFIXADO
+     * ("outro-tenant:CAM-01"), o formato real gravado por
+     * {@code IncidentMapper} desde a Tarefa 5 — prova que
+     * {@code SummaryService} desprefixa corretamente antes de casar com
+     * {@code CameraResponse.id()} (código puro) no heatmap.
+     */
+    @Test
+    void resumoNaoVazaContagensNemHeatmapDeOutroTenant() throws Exception {
+        MockHttpSession outroGestor = new MockHttpSession();
+        mvc.perform(post("/api/v1/setup").session(outroGestor)
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"admin\", \"password\": \"admin123\", "
+                                + "\"empresaId\": \"outro-tenant\", \"empresaNome\": \"Outro Tenant\"}"))
+                .andExpect(status().isOk());
+
+        estacoes.saveAndFlush(new Estacao("outro-tenant:EST-01", "Estacao de outro tenant", "setor-b", true,
+                "tok-outro-tenant-EST-01", "outro-tenant"));
+        cameras.saveAndFlush(new Camera("outro-tenant:CAM-01", "Frontal de outro tenant",
+                "outro-tenant:EST-01", "http://127.0.0.1:9099/stream", "rtsp://c", true,
+                "key-outro-tenant-CAM-01", "outro-tenant"));
+
+        Alerta incidenteOutroTenant = new Alerta();
+        incidenteOutroTenant.setIncidentKey("outro-tenant:outro-s1:run-s:1:20260810T000000000Z");
+        incidenteOutroTenant.setRunId("run-s");
+        incidenteOutroTenant.setTrackId(1);
+        incidenteOutroTenant.setCameraId("outro-tenant:CAM-01");
+        incidenteOutroTenant.setTipo(AlertaTipo.FALL_RISK);
+        incidenteOutroTenant.setSeveridade(4);
+        incidenteOutroTenant.setNivel(AlertaNivel.fromSeverity(4));
+        incidenteOutroTenant.setDescricao("teste outro tenant");
+        incidenteOutroTenant.setReason("regra");
+        incidenteOutroTenant.setPosturaCategoria("immediate_risk");
+        incidenteOutroTenant.setRebaScore(9);
+        incidenteOutroTenant.setActionLevel(3);
+        incidenteOutroTenant.setZoneStatus("outside");
+        incidenteOutroTenant.setEpiPresent(List.of());
+        incidenteOutroTenant.setEpiMissing(List.of());
+        incidenteOutroTenant.setDataHora(OffsetDateTime.now().minusHours(1));
+        incidenteOutroTenant.setStatus(AlertaStatus.PENDENTE);
+        incidenteOutroTenant.setEmpresaId("outro-tenant");
+        repository.saveAndFlush(incidenteOutroTenant);
+
+        // Tenant original ("acme-test"): as contagens e o heatmap continuam
+        // exatamente como nos testes acima — nada do tenant novo aparece.
+        mvc.perform(get("/api/v1/summary").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.incidentesHoje").value(3))
+                .andExpect(jsonPath("$.pendentes").value(4))
+                .andExpect(jsonPath("$.heatmap.length()").value(2))
+                .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-01')].incidentes").value(2))
+                .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-02')].incidentes").value(1));
+
+        // Tenant novo: só o próprio incidente, atribuído à própria estação.
+        mvc.perform(get("/api/v1/summary").session(outroGestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.incidentesHoje").value(1))
+                .andExpect(jsonPath("$.pendentes").value(1))
+                .andExpect(jsonPath("$.heatmap.length()").value(1))
+                .andExpect(jsonPath("$.heatmap[0].estacaoId").value("EST-01"))
+                .andExpect(jsonPath("$.heatmap[0].incidentes").value(1));
     }
 }

@@ -101,11 +101,14 @@ class CatalogApiTest {
     @Test
     @Transactional
     void desativarCameraATiraDaListaSemApagarSeusIncidentes() throws Exception {
+        // cameraId/incidentKey prefixados pelo tenant ("demo"), como
+        // IncidentMapper grava desde a Tarefa 5 — a busca por "camera=CAM-01"
+        // agora prefixa o filtro antes de comparar com Alerta.cameraId.
         Alerta incidente = new Alerta();
-        incidente.setIncidentKey("CAM-01:run-e2:track-1:20260820T120000000Z");
+        incidente.setIncidentKey("demo:CAM-01:run-e2:track-1:20260820T120000000Z");
         incidente.setRunId("run-e2");
         incidente.setTrackId(1);
-        incidente.setCameraId("CAM-01");
+        incidente.setCameraId("demo:CAM-01");
         incidente.setTipo(AlertaTipo.FALL_RISK);
         incidente.setSeveridade(4);
         incidente.setNivel(AlertaNivel.fromSeverity(4));

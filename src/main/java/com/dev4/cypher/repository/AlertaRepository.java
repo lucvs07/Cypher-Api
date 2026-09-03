@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -17,27 +18,29 @@ public interface AlertaRepository extends JpaRepository<Alerta, Long> {
 
     Optional<Alerta> findByIncidentKey(String incidentKey);
 
+    List<Alerta> findByEmpresaId(String empresaId);
+
     /**
      * Busca com filtros opcionais. Cada parâmetro nulo desliga seu próprio
      * predicado, o que evita quatro métodos derivados quase idênticos.
      *
-     * <p>{@code :estacaoId} chega já com o prefixo do tenant ({@code demo:EST-01});
-     * {@code Camera.id} também é prefixado, mas {@code Alerta.cameraId} ainda guarda
-     * o código puro nesta fase (a Tarefa 5 é quem o prefixa). Até lá, o subselect
-     * remove o prefixo de {@code c.id} para casar com {@code a.cameraId} — mesma
-     * operação de {@code TenantContext.codigo}, aqui em JPQL. A Tarefa 5 volta
-     * este subselect para {@code SELECT c.id}.
+     * <p>{@code :estacaoId} e {@code :cameraId} chegam já com o prefixo do
+     * tenant ({@code demo:EST-01}/{@code demo:CAM-01}), assim como
+     * {@code Camera.id} e, desde a Tarefa 5, {@code Alerta.cameraId} — o
+     * subselect compara {@code c.id} diretamente, sem remover prefixo.
      */
     @Query("""
             SELECT a FROM Alerta a
-            WHERE (:since IS NULL OR a.dataHora >= :since)
+            WHERE a.empresaId = :empresaId
+              AND (:since IS NULL OR a.dataHora >= :since)
               AND (:cameraId IS NULL OR a.cameraId = :cameraId)
               AND (:severityMin IS NULL OR a.severidade >= :severityMin)
               AND (:status IS NULL OR a.status = :status)
               AND (:estacaoId IS NULL OR a.cameraId IN
-                    (SELECT SUBSTRING(c.id, LOCATE(':', c.id) + 1) FROM Camera c WHERE c.estacaoId = :estacaoId))
+                    (SELECT c.id FROM Camera c WHERE c.estacaoId = :estacaoId))
             """)
-    Page<Alerta> buscar(@Param("since") OffsetDateTime since,
+    Page<Alerta> buscar(@Param("empresaId") String empresaId,
+                        @Param("since") OffsetDateTime since,
                         @Param("cameraId") String cameraId,
                         @Param("severityMin") Integer severityMin,
                         @Param("status") AlertaStatus status,

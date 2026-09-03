@@ -9,6 +9,7 @@ import com.dev4.cypher.mapper.IncidentMapper;
 import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.repository.AlertaRepository;
+import com.dev4.cypher.security.TenantContext;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -41,7 +42,11 @@ public class IncidentService {
 
     @Transactional
     public IngestResult ingest(IncidentRequest req) {
-        Optional<Alerta> existente = repository.findByIncidentKey(req.incidentKey());
+        // req.incidentKey() chega puro do payload; a chave armazenada é
+        // prefixada pelo tenant da própria chave X-Cypher-Key que autenticou
+        // esta ingestão (mesmo prefixo que IncidentMapper.toEntity aplica).
+        String incidentKeyPrefixado = TenantContext.key(req.incidentKey());
+        Optional<Alerta> existente = repository.findByIncidentKey(incidentKeyPrefixado);
         if (existente.isPresent()) {
             return new IngestResult(mapper.toResponse(existente.get()), false);
         }
@@ -51,7 +56,7 @@ public class IncidentService {
             salvo = repository.saveAndFlush(mapper.toEntity(req));
         } catch (DataIntegrityViolationException corrida) {
             // Dois POSTs concorrentes com a mesma chave: quem perdeu relê o vencedor.
-            Alerta vencedor = repository.findByIncidentKey(req.incidentKey())
+            Alerta vencedor = repository.findByIncidentKey(incidentKeyPrefixado)
                     .orElseThrow(() -> corrida);
             return new IngestResult(mapper.toResponse(vencedor), false);
         }
@@ -61,15 +66,20 @@ public class IncidentService {
         return new IngestResult(response, true);
     }
 
-    /** Leitura pura por incidentKey — usada para checar a câmera-alvo antes de fechar (achado de segurança). */
+    /**
+     * Leitura pura por incidentKey — usada para checar a câmera-alvo antes de
+     * fechar (achado de segurança). {@code incidentKey} chega puro (é o que o
+     * front/pipeline enxergam via {@link IncidentResponse#incidentKey()});
+     * prefixado aqui pelo tenant atual antes da busca.
+     */
     @Transactional(readOnly = true)
     public Optional<IncidentResponse> findByIncidentKey(String incidentKey) {
-        return repository.findByIncidentKey(incidentKey).map(mapper::toResponse);
+        return repository.findByIncidentKey(TenantContext.key(incidentKey)).map(mapper::toResponse);
     }
 
     @Transactional
     public Optional<IncidentResponse> close(String incidentKey, IncidentCloseRequest req) {
-        return repository.findByIncidentKey(incidentKey).map(alerta -> {
+        return repository.findByIncidentKey(TenantContext.key(incidentKey)).map(alerta -> {
             // Cada campo é opcional e aplicado individualmente: o mesmo endpoint
             // serve ao fechamento do episódio e à chegada tardia do snapshot.
             if (req.endedAt() != null) {
@@ -100,7 +110,10 @@ public class IncidentService {
                                          AlertaStatus status,
                                          String estacaoId,
                                          Pageable pageable) {
-        return repository.buscar(since, cameraId, severityMin, status, estacaoId, pageable)
+        String empresaId = TenantContext.currentEmpresaId();
+        String cameraIdPrefixado = cameraId == null ? null : TenantContext.key(empresaId, cameraId);
+        String estacaoIdPrefixado = estacaoId == null ? null : TenantContext.key(empresaId, estacaoId);
+        return repository.buscar(empresaId, since, cameraIdPrefixado, severityMin, status, estacaoIdPrefixado, pageable)
                 .map(mapper::toResponse);
     }
 
