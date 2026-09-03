@@ -20,8 +20,9 @@ public final class AuthTestSupport {
      * {@link #loginGestorBootstrap}, chamando `POST /api/v1/setup` — o
      * mesmo endpoint que o onboarding do front chama uma única vez.
      */
-    public static final String GESTOR_USERNAME = "admin";
+    public static final String GESTOR_USERNAME = "admin@acme-test";
     public static final String GESTOR_PASSWORD = "admin123";
+    public static final String EMPRESA_ID = "acme-test";
 
     private AuthTestSupport() {
     }
@@ -43,8 +44,8 @@ public final class AuthTestSupport {
         MockHttpSession session = new MockHttpSession();
         int status = mvc.perform(post("/api/v1/setup").session(session)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\": \"%s\", \"password\": \"%s\"}"
-                                .formatted(GESTOR_USERNAME, GESTOR_PASSWORD)))
+                        .content("{\"username\": \"admin\", \"password\": \"admin123\", "
+                                + "\"empresaId\": \"acme-test\", \"empresaNome\": \"Acme Test\"}"))
                 .andReturn().getResponse().getStatus();
         if (status != 200 && status != 409) {
             // Nem criou (200) nem já existia (409): algo além do esperado

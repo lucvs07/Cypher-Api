@@ -10,6 +10,7 @@ import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.repository.CameraRepository;
 import com.dev4.cypher.security.OperadorAuthentication;
 import com.dev4.cypher.security.PipelineAuthentication;
+import com.dev4.cypher.security.TenantContext;
 import com.dev4.cypher.service.IncidentService;
 import com.dev4.cypher.sse.IncidentSseService;
 import jakarta.validation.Valid;
@@ -54,10 +55,15 @@ public class IncidentController {
         this.llmAnalysisService = llmAnalysisService;
     }
 
-    /** Fluxo de incidentes em tempo real; OPERADOR recebe um fluxo já filtrado pela própria estação. */
+    /**
+     * Fluxo de incidentes em tempo real, sempre restrito à empresa da sessão
+     * atual; OPERADOR recebe, além disso, um fluxo filtrado pela própria
+     * estação. {@link IncidentSseService} compara ambos como código puro —
+     * mesma forma devolvida por {@code estacaoIdDoOperadorAtual()}.
+     */
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream() {
-        return sse.subscribe(estacaoIdDoOperadorAtual());
+        return sse.subscribe(TenantContext.currentEmpresaId(), estacaoIdDoOperadorAtual());
     }
 
     /**
@@ -66,7 +72,7 @@ public class IncidentController {
      */
     @PostMapping
     public ResponseEntity<IncidentResponse> ingest(@Valid @RequestBody IncidentRequest req) {
-        if (chaveDeOutraCamera(req.cameraId())) {
+        if (chaveDeOutraCamera(TenantContext.key(req.cameraId()))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         IncidentService.IngestResult resultado = service.ingest(req);
@@ -79,7 +85,7 @@ public class IncidentController {
     public ResponseEntity<IncidentResponse> close(@PathVariable String incidentKey,
                                                   @Valid @RequestBody IncidentCloseRequest req) {
         Optional<IncidentResponse> atual = service.findByIncidentKey(incidentKey);
-        if (atual.isPresent() && chaveDeOutraCamera(atual.get().cameraId())) {
+        if (atual.isPresent() && chaveDeOutraCamera(TenantContext.key(atual.get().cameraId()))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return service.close(incidentKey, req)
@@ -152,10 +158,11 @@ public class IncidentController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    /** `null` para GESTOR (sem filtro) ou sessão anônima; a própria estacaoId para OPERADOR. */
+    /** `null` para GESTOR (sem filtro) ou sessão anônima; a própria estacaoId (código puro) para OPERADOR. */
     private String estacaoIdDoOperadorAtual() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        return auth instanceof OperadorAuthentication operador ? operador.getEstacaoId() : null;
+        return auth instanceof OperadorAuthentication operador
+                ? TenantContext.codigo(operador.getEstacaoId()) : null;
     }
 
     /**
@@ -167,7 +174,7 @@ public class IncidentController {
         if (!(auth instanceof OperadorAuthentication operador)) {
             return false;
         }
-        return cameras.findById(cameraId)
+        return cameras.findById(TenantContext.key(operador.getEmpresaId(), cameraId))
                 .map(c -> !c.getEstacaoId().equals(operador.getEstacaoId()))
                 .orElse(true);
     }
@@ -178,7 +185,8 @@ public class IncidentController {
      * incidentes DA PRÓPRIA câmera — nunca de qualquer outra. Só se aplica
      * quando o request está autenticado via {@link PipelineAuthentication};
      * sessão GESTOR/OPERADOR (ou anônimo, onde a rota é permitAll) não é
-     * afetada por esta checagem.
+     * afetada por esta checagem. {@code cameraIdDoAlvo} já chega prefixado
+     * pelo tenant (chamadores usam {@link TenantContext#key}).
      */
     private boolean chaveDeOutraCamera(String cameraIdDoAlvo) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

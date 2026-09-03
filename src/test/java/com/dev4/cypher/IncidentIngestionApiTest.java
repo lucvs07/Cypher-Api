@@ -1,6 +1,8 @@
 package com.dev4.cypher;
 
+import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.Camera;
+import com.dev4.cypher.repository.AlertaRepository;
 import com.dev4.cypher.repository.CameraRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static com.dev4.cypher.security.CypherKeyAuthenticationFilter.HEADER;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -25,6 +28,9 @@ class IncidentIngestionApiTest {
 
     @Autowired
     private CameraRepository cameras;
+
+    @Autowired
+    private AlertaRepository alertas;
 
     private static final String CHAVE = "chave-ingestao-teste";
 
@@ -60,9 +66,9 @@ class IncidentIngestionApiTest {
      */
     @BeforeEach
     void garantirCameraDeIngestao() {
-        if (cameras.findById("CAM-INGESTAO-TESTE").isEmpty()) {
-            cameras.saveAndFlush(new Camera("CAM-INGESTAO-TESTE", "Camera de teste", "EST-INGESTAO-TESTE",
-                    "http://127.0.0.1:8999/stream", "f", true, CHAVE));
+        if (cameras.findById("demo:CAM-INGESTAO-TESTE").isEmpty()) {
+            cameras.saveAndFlush(new Camera("demo:CAM-INGESTAO-TESTE", "Camera de teste", "demo:EST-INGESTAO-TESTE",
+                    "http://127.0.0.1:8999/stream", "f", true, CHAVE, "demo"));
         }
     }
 
@@ -200,6 +206,21 @@ class IncidentIngestionApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"durationSeconds\": 1.0}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void incidenteIngeridoGuardaChaveECameraIdPrefixadosPeloTenantDaChave() throws Exception {
+        // CAM-INGESTAO-TESTE (semeada no @BeforeEach desta classe) pertence ao tenant "demo".
+        mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(QUEDA.replace("run-api", "incident-key-1")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.cameraId").value("CAM-INGESTAO-TESTE"));
+
+        Alerta salvo = alertas.findByIncidentKey(
+                "demo:CAM-INGESTAO-TESTE:incident-key-1:track-7:20260810T143102482Z").orElseThrow();
+        assertThat(salvo.getCameraId()).isEqualTo("demo:CAM-INGESTAO-TESTE");
+        assertThat(salvo.getEmpresaId()).isEqualTo("demo");
     }
 
     @Test

@@ -9,12 +9,16 @@ import com.dev4.cypher.dto.StationResponse;
 import com.dev4.cypher.model.Camera;
 import com.dev4.cypher.repository.CameraRepository;
 import com.dev4.cypher.repository.EstacaoRepository;
+import com.dev4.cypher.security.GestorAuthentication;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,6 +38,17 @@ class CatalogWriteServiceTest {
     @BeforeEach
     void setUp() {
         service = new CatalogService(estacoes, cameras);
+        SecurityContextHolder.getContext().setAuthentication(
+                new GestorAuthentication("gestor@demo", "demo"));
+    }
+
+    @AfterEach
+    void limparContexto() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void autenticarComo(GestorAuthentication auth) {
+        SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     private StationRequest esteira() {
@@ -98,7 +113,7 @@ class CatalogWriteServiceTest {
         service.updateStation("EST-01",
                 new StationRequest("EST-01", "Esteira", "montagem", null));
 
-        assertThat(estacoes.findById("EST-01").orElseThrow().isAtiva()).isFalse();
+        assertThat(estacoes.findById("demo:EST-01").orElseThrow().isAtiva()).isFalse();
     }
 
     @Test
@@ -109,7 +124,7 @@ class CatalogWriteServiceTest {
         service.updateStation("EST-01",
                 new StationRequest("EST-01", "Esteira", "montagem", true));
 
-        assertThat(estacoes.findById("EST-01").orElseThrow().isAtiva()).isTrue();
+        assertThat(estacoes.findById("demo:EST-01").orElseThrow().isAtiva()).isTrue();
     }
 
     @Test
@@ -118,8 +133,8 @@ class CatalogWriteServiceTest {
 
         assertThat(service.deactivateStation("EST-01")).isTrue();
 
-        assertThat(estacoes.findById("EST-01")).isPresent();
-        assertThat(estacoes.findById("EST-01").orElseThrow().isAtiva()).isFalse();
+        assertThat(estacoes.findById("demo:EST-01")).isPresent();
+        assertThat(estacoes.findById("demo:EST-01").orElseThrow().isAtiva()).isFalse();
     }
 
     @Test
@@ -142,10 +157,10 @@ class CatalogWriteServiceTest {
     @Test
     void estacaoAtivaNaoMostraCameraDesativada() {
         service.createStation(esteira());
-        cameras.save(new Camera("CAM-01", "Frontal", "EST-01",
-                "http://127.0.0.1:8090/stream", "rtsp://a", true, "key-CAM-01"));
-        cameras.saveAndFlush(new Camera("CAM-02", "Antiga", "EST-01",
-                "http://127.0.0.1:8091/stream", "rtsp://b", false, "key-CAM-02"));
+        cameras.save(new Camera("demo:CAM-01", "Frontal", "demo:EST-01",
+                "http://127.0.0.1:8090/stream", "rtsp://a", true, "key-CAM-01", "demo"));
+        cameras.saveAndFlush(new Camera("demo:CAM-02", "Antiga", "demo:EST-01",
+                "http://127.0.0.1:8091/stream", "rtsp://b", false, "key-CAM-02", "demo"));
 
         StationResponse estacao = service.stations().get(0);
 
@@ -155,10 +170,10 @@ class CatalogWriteServiceTest {
 
     @Test
     void listaDeCamerasOmiteDesativadas() {
-        cameras.save(new Camera("CAM-01", "Frontal", "EST-01",
-                "http://127.0.0.1:8090/stream", "rtsp://a", true, "key-CAM-01"));
-        cameras.saveAndFlush(new Camera("CAM-02", "Antiga", "EST-01",
-                "http://127.0.0.1:8091/stream", "rtsp://b", false, "key-CAM-02"));
+        cameras.save(new Camera("demo:CAM-01", "Frontal", "demo:EST-01",
+                "http://127.0.0.1:8090/stream", "rtsp://a", true, "key-CAM-01", "demo"));
+        cameras.saveAndFlush(new Camera("demo:CAM-02", "Antiga", "demo:EST-01",
+                "http://127.0.0.1:8091/stream", "rtsp://b", false, "key-CAM-02", "demo"));
 
         assertThat(service.cameras()).hasSize(1);
     }
@@ -211,6 +226,20 @@ class CatalogWriteServiceTest {
                 .isInstanceOf(CatalogValidationException.class)
                 .satisfies(e -> assertThat(((CatalogValidationException) e).getStatus())
                         .isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
+    void streamUrlIdenticaEhAceitaEmEmpresasDiferentes() {
+        autenticarComo(new GestorAuthentication("gestor@acme", "acme"));
+        service.createStation(esteira());
+        service.createCamera(frontal());
+
+        autenticarComo(new GestorAuthentication("gestor@globex", "globex"));
+        service.createStation(esteira());
+
+        CameraAdminResponse criada = service.createCamera(frontal());
+
+        assertThat(criada.id()).isEqualTo("CAM-01");
     }
 
     @Test
@@ -279,5 +308,20 @@ class CatalogWriteServiceTest {
     void cameraInexistenteDevolveVazio() {
         assertThat(service.camera("CAM-99")).isEmpty();
         assertThat(service.deactivateCamera("CAM-99")).isFalse();
+    }
+
+    @Test
+    void listaDeEstacoesNaoVazaEntreEmpresas() {
+        autenticarComo(new GestorAuthentication("gestor@acme", "acme"));
+        service.createStation(new StationRequest("EST-01", "Acme", "montagem", true));
+
+        autenticarComo(new GestorAuthentication("gestor@globex", "globex"));
+        service.createStation(new StationRequest("EST-01", "Globex", "montagem", true));
+
+        List<StationResponse> deAcme;
+        autenticarComo(new GestorAuthentication("gestor@acme", "acme"));
+        deAcme = service.stations();
+
+        assertThat(deAcme).extracting(StationResponse::nome).containsExactly("Acme");
     }
 }

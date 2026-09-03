@@ -70,13 +70,18 @@ class IncidentQueryApiTest {
         // única câmera fictícia "reaproveitada": achado de segurança da
         // revisão final trava a chave por câmera, então cada incidente
         // precisa ser ingerido com a chave da câmera que ele diz ser.
-        if (cameras.findById("CAM-Q1").isEmpty()) {
-            cameras.saveAndFlush(new Camera("CAM-Q1", "Camera de teste 1",
-                    "EST-INGESTAO-TESTE", "http://127.0.0.1:8999/stream", "f", true, CHAVE_CAM01));
+        // Câmeras sob o mesmo tenant ("acme-test") do gestor bootstrap — desde
+        // que a busca passou a ser escopada por empresaId (Tarefa 5), listar
+        // sob a sessão do gestor só enxerga incidentes do PRÓPRIO tenant.
+        if (cameras.findById("acme-test:CAM-Q1").isEmpty()) {
+            cameras.saveAndFlush(new Camera("acme-test:CAM-Q1", "Camera de teste 1",
+                    "acme-test:EST-INGESTAO-TESTE", "http://127.0.0.1:8999/stream", "f", true,
+                    CHAVE_CAM01, "acme-test"));
         }
-        if (cameras.findById("CAM-Q2").isEmpty()) {
-            cameras.saveAndFlush(new Camera("CAM-Q2", "Camera de teste 2",
-                    "EST-INGESTAO-TESTE", "http://127.0.0.1:8998/stream", "f", true, CHAVE_CAM02));
+        if (cameras.findById("acme-test:CAM-Q2").isEmpty()) {
+            cameras.saveAndFlush(new Camera("acme-test:CAM-Q2", "Camera de teste 2",
+                    "acme-test:EST-INGESTAO-TESTE", "http://127.0.0.1:8998/stream", "f", true,
+                    CHAVE_CAM02, "acme-test"));
         }
         repository.deleteAll();
         mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE_CAM01)

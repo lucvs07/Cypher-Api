@@ -6,6 +6,7 @@ import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.AlertaNivel;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.model.AlertaTipo;
+import com.dev4.cypher.security.TenantContext;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -18,9 +19,10 @@ import java.util.List;
 public class IncidentMapper {
 
     public Alerta toEntity(IncidentRequest req) {
+        String empresaId = TenantContext.currentEmpresaId();
         Alerta a = new Alerta();
-        a.setIncidentKey(req.incidentKey());
-        a.setCameraId(req.cameraId());
+        a.setIncidentKey(TenantContext.key(empresaId, req.incidentKey()));
+        a.setCameraId(TenantContext.key(empresaId, req.cameraId()));
         a.setRunId(req.runId());
         a.setTrackId(req.trackId());
         a.setTipo(req.type());
@@ -39,14 +41,15 @@ public class IncidentMapper {
         a.setDescricao(descricaoDe(req.type(), req.reason(), req.cameraId()));
         // Status é sempre atribuído pelo servidor; nunca vem do cliente.
         a.setStatus(AlertaStatus.PENDENTE);
+        a.setEmpresaId(empresaId);
         return a;
     }
 
     public IncidentResponse toResponse(Alerta a) {
         return new IncidentResponse(
                 a.getId(),
-                a.getIncidentKey(),
-                a.getCameraId(),
+                TenantContext.codigo(a.getIncidentKey()),
+                TenantContext.codigo(a.getCameraId()),
                 a.getRunId(),
                 a.getTrackId(),
                 a.getTipo(),
@@ -67,7 +70,8 @@ public class IncidentMapper {
                 a.getDuracaoSegundos(),
                 a.getSeveridadePico(),
                 a.getClosedReason(),
-                a.getStatus());
+                a.getStatus(),
+                a.getEmpresaId());
     }
 
     /** Texto legível exibido no painel; gerado no servidor, nunca enviado pelo cliente. */

@@ -6,14 +6,18 @@ import com.dev4.cypher.dto.UsuarioResponse;
 import com.dev4.cypher.model.Estacao;
 import com.dev4.cypher.repository.EstacaoRepository;
 import com.dev4.cypher.repository.UsuarioRepository;
+import com.dev4.cypher.security.GestorAuthentication;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,7 +39,18 @@ class UsuarioServiceTest {
     @BeforeEach
     void setUp() {
         service = new UsuarioService(usuarios, estacoes, encoder);
-        estacoes.saveAndFlush(new Estacao("EST-01", "Estacao 1", "montagem", true, "tok-1"));
+        SecurityContextHolder.getContext().setAuthentication(
+                new GestorAuthentication("gestor@demo", "demo"));
+        estacoes.saveAndFlush(new Estacao("demo:EST-01", "Estacao 1", "montagem", true, "tok-1", "demo"));
+    }
+
+    @AfterEach
+    void limparContexto() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void autenticarComo(GestorAuthentication auth) {
+        SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     private UserRequest gestor2() {
@@ -50,10 +65,10 @@ class UsuarioServiceTest {
     void cadastraUsuarioComSenhaHasheada() {
         UsuarioResponse criado = service.criar(gestor2());
 
-        assertThat(criado.username()).isEqualTo("gestor2");
+        assertThat(criado.username()).isEqualTo("gestor2@demo");
         assertThat(criado.papel()).isEqualTo("GESTOR");
         assertThat(criado.estacaoId()).isNull();
-        String hash = usuarios.findByUsername("gestor2").orElseThrow().getPasswordHash();
+        String hash = usuarios.findByUsername("gestor2@demo").orElseThrow().getPasswordHash();
         assertThat(hash).isNotEqualTo("senha123");
         assertThat(encoder.matches("senha123", hash)).isTrue();
     }
@@ -62,7 +77,7 @@ class UsuarioServiceTest {
     void cadastraOperadorVinculadoAUmaEstacaoValida() {
         UsuarioResponse criado = service.criar(operador1());
 
-        assertThat(criado.username()).isEqualTo("op1");
+        assertThat(criado.username()).isEqualTo("op1@demo");
         assertThat(criado.papel()).isEqualTo("OPERADOR");
         assertThat(criado.estacaoId()).isEqualTo("EST-01");
     }
@@ -112,23 +127,34 @@ class UsuarioServiceTest {
     @Test
     void editaUsernameSemRedefinirSenha() {
         service.criar(gestor2());
-        String hashOriginal = usuarios.findByUsername("gestor2").orElseThrow().getPasswordHash();
+        String hashOriginal = usuarios.findByUsername("gestor2@demo").orElseThrow().getPasswordHash();
 
-        Optional<UsuarioResponse> editado = service.atualizar("gestor2",
-                new UserRequest("gestor2-renomeado", "GESTOR", null, null));
+        Optional<UsuarioResponse> editado = service.atualizar("gestor2@demo",
+                new UserRequest("gestor2-renomeado@demo", "GESTOR", null, null));
 
         assertThat(editado).isPresent();
-        assertThat(editado.get().username()).isEqualTo("gestor2-renomeado");
-        assertThat(usuarios.findByUsername("gestor2-renomeado").orElseThrow().getPasswordHash())
+        assertThat(editado.get().username()).isEqualTo("gestor2-renomeado@demo");
+        assertThat(usuarios.findByUsername("gestor2-renomeado@demo").orElseThrow().getPasswordHash())
                 .isEqualTo(hashOriginal);
+    }
+
+    @Test
+    void editaUsernameSemSufixoDoTenantDevolve422() {
+        service.criar(gestor2());
+
+        assertThatThrownBy(() -> service.atualizar("gestor2@demo",
+                new UserRequest("gestor2-renomeado", "GESTOR", null, null)))
+                .isInstanceOf(CatalogValidationException.class)
+                .satisfies(e -> assertThat(((CatalogValidationException) e).getStatus())
+                        .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
     }
 
     @Test
     void editaTrocandoDeGestorParaOperadorExigeEstacao() {
         service.criar(gestor2());
 
-        Optional<UsuarioResponse> editado = service.atualizar("gestor2",
-                new UserRequest("gestor2", "OPERADOR", null, "EST-01"));
+        Optional<UsuarioResponse> editado = service.atualizar("gestor2@demo",
+                new UserRequest("gestor2@demo", "OPERADOR", null, "EST-01"));
 
         assertThat(editado).isPresent();
         assertThat(editado.get().papel()).isEqualTo("OPERADOR");
@@ -138,30 +164,44 @@ class UsuarioServiceTest {
     @Test
     void editaRedefinindoSenha() {
         service.criar(gestor2());
-        String hashOriginal = usuarios.findByUsername("gestor2").orElseThrow().getPasswordHash();
+        String hashOriginal = usuarios.findByUsername("gestor2@demo").orElseThrow().getPasswordHash();
 
-        service.atualizar("gestor2", new UserRequest("gestor2", "GESTOR", "novaSenha456", null));
+        service.atualizar("gestor2@demo", new UserRequest("gestor2@demo", "GESTOR", "novaSenha456", null));
 
-        String hashNovo = usuarios.findByUsername("gestor2").orElseThrow().getPasswordHash();
+        String hashNovo = usuarios.findByUsername("gestor2@demo").orElseThrow().getPasswordHash();
         assertThat(hashNovo).isNotEqualTo(hashOriginal);
         assertThat(encoder.matches("novaSenha456", hashNovo)).isTrue();
     }
 
     @Test
     void editarInexistenteDevolveVazio() {
-        assertThat(service.atualizar("nao-existe", new UserRequest("x", "GESTOR", null, null))).isEmpty();
+        assertThat(service.atualizar("nao-existe@demo", new UserRequest("x@demo", "GESTOR", null, null))).isEmpty();
     }
 
     @Test
     void removeUsuario() {
         service.criar(gestor2());
 
-        assertThat(service.remover("gestor2")).isTrue();
-        assertThat(usuarios.findByUsername("gestor2")).isEmpty();
+        assertThat(service.remover("gestor2@demo")).isTrue();
+        assertThat(usuarios.findByUsername("gestor2@demo")).isEmpty();
     }
 
     @Test
     void removerInexistenteDevolveFalso() {
         assertThat(service.remover("nao-existe")).isFalse();
+    }
+
+    @Test
+    void listaDeUsuariosNaoVazaEntreEmpresas() {
+        service.criar(gestor2());
+
+        autenticarComo(new GestorAuthentication("gestor@globex", "globex"));
+        service.criar(gestor2());
+
+        List<UsuarioResponse> deDemo;
+        autenticarComo(new GestorAuthentication("gestor@demo", "demo"));
+        deDemo = service.listar();
+
+        assertThat(deDemo).extracting(UsuarioResponse::username).containsExactly("gestor2@demo");
     }
 }

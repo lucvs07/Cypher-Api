@@ -43,7 +43,7 @@ public class Alerta {
     @Column(nullable = false)
     private Integer trackId;
 
-    @Column(nullable = false, length = 64)
+    @Column(nullable = false, length = 100)
     private String cameraId;
 
     @Enumerated(EnumType.STRING)
@@ -110,4 +110,7 @@ public class Alerta {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AlertaStatus status;
+
+    @Column(nullable = false, length = 30)
+    private String empresaId;
 }

@@ -6,6 +6,7 @@ import com.dev4.cypher.dto.UsuarioResponse;
 import com.dev4.cypher.model.Usuario;
 import com.dev4.cypher.repository.EstacaoRepository;
 import com.dev4.cypher.repository.UsuarioRepository;
+import com.dev4.cypher.security.TenantContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -36,36 +37,50 @@ public class UsuarioService {
 
     @Transactional(readOnly = true)
     public List<UsuarioResponse> listar() {
-        return usuarios.findAll().stream().map(this::toResponse).toList();
+        return usuarios.findByEmpresaId(TenantContext.currentEmpresaId()).stream().map(this::toResponse).toList();
     }
 
     @Transactional
     public UsuarioResponse criar(UserRequest req) {
-        validarPapelEEstacao(req.papel(), req.estacaoId());
-        if (usuarios.existsByUsername(req.username())) {
+        String empresaId = TenantContext.currentEmpresaId();
+        String estacaoIdPrefixado = prefixarEstacao(req.papel(), req.estacaoId());
+        validarPapelEEstacao(req.papel(), estacaoIdPrefixado);
+        String username = TenantContext.username(req.username(), empresaId);
+        if (usuarios.existsByUsername(username)) {
             throw new CatalogValidationException(HttpStatus.CONFLICT,
-                    "Usuario ja cadastrado: " + req.username());
+                    "Usuario ja cadastrado: " + username);
         }
         if (req.password() == null || req.password().isBlank()) {
             throw new CatalogValidationException(HttpStatus.BAD_REQUEST,
                     "password e obrigatoria no cadastro");
         }
-        String estacaoId = "OPERADOR".equals(req.papel()) ? req.estacaoId() : null;
-        Usuario novo = new Usuario(null, req.username(), encoder.encode(req.password()), req.papel(), estacaoId);
+        Usuario novo = new Usuario(null, username, encoder.encode(req.password()), req.papel(),
+                estacaoIdPrefixado, empresaId);
         return toResponse(usuarios.saveAndFlush(novo));
     }
 
     @Transactional
     public Optional<UsuarioResponse> atualizar(String username, UserRequest req) {
-        validarPapelEEstacao(req.papel(), req.estacaoId());
-        return usuarios.findByUsername(username).map(usuario -> {
+        String empresaId = TenantContext.currentEmpresaId();
+        String estacaoIdPrefixado = prefixarEstacao(req.papel(), req.estacaoId());
+        validarPapelEEstacao(req.papel(), estacaoIdPrefixado);
+        int arroba = req.username().lastIndexOf('@');
+        String nomeNovo = arroba < 0 ? req.username() : req.username().substring(0, arroba);
+        if (!TenantContext.username(nomeNovo, empresaId).equals(req.username())) {
+            throw new CatalogValidationException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "username deve terminar em @" + empresaId);
+        }
+        // Fronteira de tenant: o alvo e resolvido pelo par (username, empresaId atual),
+        // nunca so por username — senao um gestor de outra empresa poderia editar/assumir
+        // um usuario de outro tenant so por saber o username completo dele.
+        return usuarios.findByUsernameAndEmpresaId(username, empresaId).map(usuario -> {
             if (!usuario.getUsername().equals(req.username()) && usuarios.existsByUsername(req.username())) {
                 throw new CatalogValidationException(HttpStatus.CONFLICT,
                         "Usuario ja cadastrado: " + req.username());
             }
             usuario.setUsername(req.username());
             usuario.setPapel(req.papel());
-            usuario.setEstacaoId("OPERADOR".equals(req.papel()) ? req.estacaoId() : null);
+            usuario.setEstacaoId(estacaoIdPrefixado);
             // password ausente/vazia = nao redefinir (mesmo padrao de StationRequest.ativa == null).
             if (req.password() != null && !req.password().isBlank()) {
                 usuario.setPasswordHash(encoder.encode(req.password()));
@@ -74,33 +89,43 @@ public class UsuarioService {
         });
     }
 
+    /** Prefixa {@code estacaoId} com o tenant unico, so quando papel OPERADOR e o valor foi informado. */
+    private String prefixarEstacao(String papel, String estacaoId) {
+        return "OPERADOR".equals(papel) && estacaoId != null && !estacaoId.isBlank()
+                ? TenantContext.key(estacaoId) : null;
+    }
+
     @Transactional
     public boolean remover(String username) {
-        if (!usuarios.existsByUsername(username)) {
+        String empresaId = TenantContext.currentEmpresaId();
+        // Mesma fronteira de tenant de atualizar(): sem o filtro por empresaId,
+        // um gestor de outra empresa poderia apagar um usuario de outro tenant.
+        if (!usuarios.existsByUsernameAndEmpresaId(username, empresaId)) {
             return false;
         }
-        usuarios.deleteByUsername(username);
+        usuarios.deleteByUsernameAndEmpresaId(username, empresaId);
         return true;
     }
 
-    private void validarPapelEEstacao(String papel, String estacaoId) {
+    private void validarPapelEEstacao(String papel, String estacaoIdPrefixado) {
         if (!PAPEIS_VALIDOS.contains(papel)) {
             throw new CatalogValidationException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "papel deve ser GESTOR ou OPERADOR: " + papel);
         }
         if ("OPERADOR".equals(papel)) {
-            if (estacaoId == null || estacaoId.isBlank()) {
+            if (estacaoIdPrefixado == null) {
                 throw new CatalogValidationException(HttpStatus.UNPROCESSABLE_ENTITY,
                         "estacaoId e obrigatorio para OPERADOR");
             }
-            if (!estacoes.existsById(estacaoId)) {
+            if (!estacoes.existsById(estacaoIdPrefixado)) {
                 throw new CatalogValidationException(HttpStatus.UNPROCESSABLE_ENTITY,
-                        "estacao inexistente: " + estacaoId);
+                        "estacao inexistente: " + TenantContext.codigo(estacaoIdPrefixado));
             }
         }
     }
 
     private UsuarioResponse toResponse(Usuario u) {
-        return new UsuarioResponse(u.getId(), u.getUsername(), u.getPapel(), u.getEstacaoId());
+        String estacaoId = u.getEstacaoId() == null ? null : TenantContext.codigo(u.getEstacaoId());
+        return new UsuarioResponse(u.getId(), u.getUsername(), u.getPapel(), estacaoId);
     }
 }

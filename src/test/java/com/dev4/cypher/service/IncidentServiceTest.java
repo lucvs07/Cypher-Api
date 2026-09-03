@@ -7,11 +7,14 @@ import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.model.AlertaTipo;
 import com.dev4.cypher.model.ClosedReason;
 import com.dev4.cypher.repository.AlertaRepository;
+import com.dev4.cypher.security.GestorAuthentication;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -34,6 +37,13 @@ class IncidentServiceTest {
         // IncidentEventPublicationTest, que exercita o commit real.
         ApplicationEventPublisher noop = event -> { };
         service = new IncidentService(repository, new IncidentMapper(), noop);
+        SecurityContextHolder.getContext().setAuthentication(
+                new GestorAuthentication("gestor@demo", "demo"));
+    }
+
+    @AfterEach
+    void limparContexto() {
+        SecurityContextHolder.clearContext();
     }
 
     private IncidentRequest queda(String key) {

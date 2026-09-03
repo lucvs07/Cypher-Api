@@ -3,8 +3,10 @@ package com.dev4.cypher.controller;
 import com.dev4.cypher.dto.AuthResponse;
 import com.dev4.cypher.dto.LoginEstacaoRequest;
 import com.dev4.cypher.dto.LoginRequest;
+import com.dev4.cypher.model.Empresa;
 import com.dev4.cypher.model.Estacao;
 import com.dev4.cypher.model.Usuario;
+import com.dev4.cypher.repository.EmpresaRepository;
 import com.dev4.cypher.repository.EstacaoRepository;
 import com.dev4.cypher.repository.UsuarioRepository;
 import com.dev4.cypher.security.GestorAuthentication;
@@ -34,13 +36,15 @@ public class AuthController {
 
     private final UsuarioRepository usuarios;
     private final EstacaoRepository estacoes;
+    private final EmpresaRepository empresas;
     private final PasswordEncoder encoder;
     private final SessionAuthenticator sessionAuthenticator;
 
-    public AuthController(UsuarioRepository usuarios, EstacaoRepository estacoes,
+    public AuthController(UsuarioRepository usuarios, EstacaoRepository estacoes, EmpresaRepository empresas,
                           PasswordEncoder encoder, SessionAuthenticator sessionAuthenticator) {
         this.usuarios = usuarios;
         this.estacoes = estacoes;
+        this.empresas = empresas;
         this.encoder = encoder;
         this.sessionAuthenticator = sessionAuthenticator;
     }
@@ -53,13 +57,18 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("erro", "Usuario ou senha invalidos"));
         }
+        String empresaNome = nomeDaEmpresa(usuario.getEmpresaId());
         if ("OPERADOR".equals(usuario.getPapel())) {
             sessionAuthenticator.autenticar(
-                    new OperadorAuthentication(usuario.getEstacaoId(), usuario.getUsername()), request, response);
-            return ResponseEntity.ok(AuthResponse.operador(usuario.getEstacaoId(), usuario.getUsername()));
+                    new OperadorAuthentication(usuario.getEstacaoId(), usuario.getUsername(), usuario.getEmpresaId()),
+                    request, response);
+            return ResponseEntity.ok(AuthResponse.operador(
+                    com.dev4.cypher.security.TenantContext.codigo(usuario.getEstacaoId()),
+                    usuario.getUsername(), usuario.getEmpresaId(), empresaNome));
         }
-        sessionAuthenticator.autenticar(new GestorAuthentication(usuario.getUsername()), request, response);
-        return ResponseEntity.ok(AuthResponse.gestor(usuario.getUsername()));
+        sessionAuthenticator.autenticar(new GestorAuthentication(usuario.getUsername(), usuario.getEmpresaId()),
+                request, response);
+        return ResponseEntity.ok(AuthResponse.gestor(usuario.getUsername(), usuario.getEmpresaId(), empresaNome));
     }
 
     @PostMapping("/login-estacao")
@@ -70,8 +79,11 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("erro", "Token de estacao invalido ou inativo"));
         }
-        sessionAuthenticator.autenticar(new OperadorAuthentication(estacao.getId()), request, response);
-        return ResponseEntity.ok(AuthResponse.operador(estacao.getId()));
+        sessionAuthenticator.autenticar(
+                new OperadorAuthentication(estacao.getId(), estacao.getEmpresaId()), request, response);
+        return ResponseEntity.ok(AuthResponse.operador(
+                com.dev4.cypher.security.TenantContext.codigo(estacao.getId()),
+                estacao.getEmpresaId(), nomeDaEmpresa(estacao.getEmpresaId())));
     }
 
     @PostMapping("/logout")
@@ -88,13 +100,19 @@ public class AuthController {
     public ResponseEntity<AuthResponse> me() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth instanceof GestorAuthentication g) {
-            return ResponseEntity.ok(AuthResponse.gestor(g.getUsername()));
+            return ResponseEntity.ok(AuthResponse.gestor(g.getUsername(), g.getEmpresaId(), nomeDaEmpresa(g.getEmpresaId())));
         }
         if (auth instanceof OperadorAuthentication o) {
+            String estacaoId = com.dev4.cypher.security.TenantContext.codigo(o.getEstacaoId());
+            String empresaNome = nomeDaEmpresa(o.getEmpresaId());
             return ResponseEntity.ok(o.getUsername() != null
-                    ? AuthResponse.operador(o.getEstacaoId(), o.getUsername())
-                    : AuthResponse.operador(o.getEstacaoId()));
+                    ? AuthResponse.operador(estacaoId, o.getUsername(), o.getEmpresaId(), empresaNome)
+                    : AuthResponse.operador(estacaoId, o.getEmpresaId(), empresaNome));
         }
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+    }
+
+    private String nomeDaEmpresa(String empresaId) {
+        return empresas.findById(empresaId).map(Empresa::getNome).orElse(null);
     }
 }

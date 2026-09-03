@@ -1,11 +1,14 @@
 package com.dev4.cypher.config;
 
 import com.dev4.cypher.model.Camera;
+import com.dev4.cypher.model.Empresa;
 import com.dev4.cypher.model.Estacao;
 import com.dev4.cypher.model.WebhookSubscription;
 import com.dev4.cypher.repository.CameraRepository;
+import com.dev4.cypher.repository.EmpresaRepository;
 import com.dev4.cypher.repository.EstacaoRepository;
 import com.dev4.cypher.repository.WebhookSubscriptionRepository;
+import com.dev4.cypher.security.TenantContext;
 import com.dev4.cypher.security.TokenGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,16 +25,21 @@ public class CatalogSeeder implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(CatalogSeeder.class);
 
+    private static final String EMPRESA_DEMO = "demo";
+
     private final CatalogProperties properties;
+    private final EmpresaRepository empresas;
     private final EstacaoRepository estacoes;
     private final CameraRepository cameras;
     private final WebhookSubscriptionRepository webhooks;
 
     public CatalogSeeder(CatalogProperties properties,
+                         EmpresaRepository empresas,
                          EstacaoRepository estacoes,
                          CameraRepository cameras,
                          WebhookSubscriptionRepository webhooks) {
         this.properties = properties;
+        this.empresas = empresas;
         this.estacoes = estacoes;
         this.cameras = cameras;
         this.webhooks = webhooks;
@@ -46,10 +54,15 @@ public class CatalogSeeder implements ApplicationRunner {
      */
     @Override
     public void run(ApplicationArguments args) {
+        if (!empresas.existsById(EMPRESA_DEMO)) {
+            empresas.save(new Empresa(EMPRESA_DEMO, "Empresa de demonstracao", true));
+        }
+
         if (estacoes.count() == 0) {
             properties.getStations().forEach(cfg ->
-                    estacoes.save(new Estacao(cfg.getId(), cfg.getNome(), cfg.getSetor(),
-                            cfg.isAtiva(), TokenGenerator.novo("est-tok"))));
+                    estacoes.save(new Estacao(TenantContext.key(EMPRESA_DEMO, cfg.getId()),
+                            cfg.getNome(), cfg.getSetor(), cfg.isAtiva(), TokenGenerator.novo("est-tok"),
+                            EMPRESA_DEMO)));
             log.info("Catalogo: {} estacao(oes) semeada(s) da configuracao",
                     properties.getStations().size());
         } else {
@@ -59,9 +72,10 @@ public class CatalogSeeder implements ApplicationRunner {
 
         if (cameras.count() == 0) {
             properties.getCameras().forEach(cfg ->
-                    cameras.save(new Camera(cfg.getId(), cfg.getNome(), cfg.getEstacaoId(),
-                            cfg.getStreamUrl(), cfg.getFonte(), cfg.isAtiva(),
-                            TokenGenerator.novo("cam-key"))));
+                    cameras.save(new Camera(TenantContext.key(EMPRESA_DEMO, cfg.getId()),
+                            cfg.getNome(), TenantContext.key(EMPRESA_DEMO, cfg.getEstacaoId()),
+                            cfg.getStreamUrl(), cfg.getFonte(), cfg.isAtiva(), TokenGenerator.novo("cam-key"),
+                            EMPRESA_DEMO)));
             log.info("Catalogo: {} camera(s) semeada(s) da configuracao",
                     properties.getCameras().size());
         } else {
@@ -76,7 +90,7 @@ public class CatalogSeeder implements ApplicationRunner {
                     .anyMatch(w -> w.getUrl().equals(cfg.getUrl()));
             if (!jaExiste) {
                 webhooks.save(new WebhookSubscription(null, cfg.getUrl(), cfg.getSecret(),
-                        cfg.getMinSeverity(), cfg.isAtivo()));
+                        cfg.getMinSeverity(), cfg.isAtivo(), EMPRESA_DEMO));
             }
         });
     }

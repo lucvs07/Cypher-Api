@@ -7,11 +7,11 @@ import com.dev4.cypher.model.Equipe;
 import com.dev4.cypher.model.Turno;
 import com.dev4.cypher.repository.EquipeRepository;
 import com.dev4.cypher.repository.EstacaoRepository;
+import com.dev4.cypher.security.TenantContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,30 +29,33 @@ public class EquipeService {
 
     @Transactional(readOnly = true)
     public List<TeamResponse> listar() {
-        return equipes.findAll().stream().map(this::toResponse).toList();
+        return equipes.findByEmpresaId(TenantContext.currentEmpresaId()).stream().map(this::toResponse).toList();
     }
 
     @Transactional
     public TeamResponse criar(TeamRequest req) {
-        if (equipes.existsById(req.id())) {
+        String id = TenantContext.key(req.id());
+        if (equipes.existsById(id)) {
             throw new CatalogValidationException(HttpStatus.CONFLICT, "Equipe ja cadastrada: " + req.id());
         }
-        exigirEstacoesExistentes(req.estacaoIds());
-        exigirSemConflito(req.estacaoIds(), req.turno(), null);
-        Equipe nova = new Equipe(req.id(), req.nome(), req.turno(), new ArrayList<>(req.estacaoIds()),
-                req.ativa() == null || req.ativa());
+        List<String> estacaoIds = prefixar(req.estacaoIds());
+        exigirEstacoesExistentes(estacaoIds);
+        exigirSemConflito(estacaoIds, req.turno(), null);
+        Equipe nova = new Equipe(id, req.nome(), req.turno(), estacaoIds,
+                req.ativa() == null || req.ativa(), TenantContext.currentEmpresaId());
         return toResponse(equipes.saveAndFlush(nova));
     }
 
     @Transactional
     public Optional<TeamResponse> atualizar(String id, TeamRequest req) {
         exigirMesmoCodigo(id, req.id());
-        return equipes.findById(id).map(equipe -> {
-            exigirEstacoesExistentes(req.estacaoIds());
-            exigirSemConflito(req.estacaoIds(), req.turno(), id);
+        return equipes.findById(TenantContext.key(id)).map(equipe -> {
+            List<String> estacaoIds = prefixar(req.estacaoIds());
+            exigirEstacoesExistentes(estacaoIds);
+            exigirSemConflito(estacaoIds, req.turno(), equipe.getId());
             equipe.setNome(req.nome());
             equipe.setTurno(req.turno());
-            equipe.setEstacaoIds(new ArrayList<>(req.estacaoIds()));
+            equipe.setEstacaoIds(estacaoIds);
             if (req.ativa() != null) {
                 equipe.setAtiva(req.ativa());
             }
@@ -62,32 +65,41 @@ public class EquipeService {
 
     @Transactional
     public boolean remover(String id) {
-        if (!equipes.existsById(id)) {
+        String chave = TenantContext.key(id);
+        if (!equipes.existsById(chave)) {
             return false;
         }
-        equipes.deleteById(id);
+        equipes.deleteById(chave);
         return true;
     }
 
-    private void exigirEstacoesExistentes(List<String> estacaoIds) {
-        for (String estacaoId : estacaoIds) {
+    private List<String> prefixar(List<String> estacaoIds) {
+        String empresaId = TenantContext.currentEmpresaId();
+        return estacaoIds.stream()
+                .map(id -> TenantContext.key(empresaId, id))
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+    }
+
+    private void exigirEstacoesExistentes(List<String> estacaoIdsPrefixados) {
+        for (String estacaoId : estacaoIdsPrefixados) {
             if (!estacoes.existsById(estacaoId)) {
                 throw new CatalogValidationException(HttpStatus.UNPROCESSABLE_ENTITY,
-                        "Estacao inexistente: " + estacaoId);
+                        "Estacao inexistente: " + TenantContext.codigo(estacaoId));
             }
         }
     }
 
     /** (estacaoId, turno) e unico a nivel de aplicacao (spec E4 §3) — nunca constraint de banco. */
-    private void exigirSemConflito(List<String> estacaoIds, Turno turno, String idPropria) {
-        equipes.findByTurno(turno).stream()
+    private void exigirSemConflito(List<String> estacaoIdsPrefixados, Turno turno, String idPropria) {
+        equipes.findByEmpresaIdAndTurno(TenantContext.currentEmpresaId(), turno).stream()
                 .filter(outra -> !outra.getId().equals(idPropria))
                 .forEach(outra -> {
-                    for (String estacaoId : estacaoIds) {
+                    for (String estacaoId : estacaoIdsPrefixados) {
                         if (outra.getEstacaoIds().contains(estacaoId)) {
                             throw new CatalogValidationException(HttpStatus.CONFLICT,
                                     "Estacao %s ja coberta pela equipe %s no turno %s"
-                                            .formatted(estacaoId, outra.getId(), turno));
+                                            .formatted(TenantContext.codigo(estacaoId),
+                                                    TenantContext.codigo(outra.getId()), turno));
                         }
                     }
                 });
@@ -101,6 +113,7 @@ public class EquipeService {
     }
 
     private TeamResponse toResponse(Equipe e) {
-        return new TeamResponse(e.getId(), e.getNome(), e.getTurno(), List.copyOf(e.getEstacaoIds()), e.isAtiva());
+        List<String> estacaoIds = e.getEstacaoIds().stream().map(TenantContext::codigo).toList();
+        return new TeamResponse(TenantContext.codigo(e.getId()), e.getNome(), e.getTurno(), estacaoIds, e.isAtiva());
     }
 }

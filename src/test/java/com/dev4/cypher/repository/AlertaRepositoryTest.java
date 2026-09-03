@@ -46,6 +46,7 @@ class AlertaRepositoryTest {
         a.setEpiMissing(List.of());
         a.setDataHora(OffsetDateTime.of(2026, 8, 10, 14, 31, 2, 0, ZoneOffset.ofHours(-3)));
         a.setStatus(AlertaStatus.PENDENTE);
+        a.setEmpresaId("demo");
         return a;
     }
 

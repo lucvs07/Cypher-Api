@@ -14,17 +14,19 @@ public class OperadorAuthentication extends AbstractAuthenticationToken {
 
     private final String estacaoId;
     private final String username;
+    private final String empresaId;
 
     /** Login por token — sem conceito de usuário. */
-    public OperadorAuthentication(String estacaoId) {
-        this(estacaoId, null);
+    public OperadorAuthentication(String estacaoId, String empresaId) {
+        this(estacaoId, null, empresaId);
     }
 
     /** Login por usuário/senha (revisão pós-E4). */
-    public OperadorAuthentication(String estacaoId, String username) {
+    public OperadorAuthentication(String estacaoId, String username, String empresaId) {
         super(List.of(new SimpleGrantedAuthority("ROLE_OPERADOR")));
         this.estacaoId = estacaoId;
         this.username = username;
+        this.empresaId = empresaId;
         setAuthenticated(true);
     }
 
@@ -44,5 +46,9 @@ public class OperadorAuthentication extends AbstractAuthenticationToken {
 
     public String getUsername() {
         return username;
+    }
+
+    public String getEmpresaId() {
+        return empresaId;
     }
 }

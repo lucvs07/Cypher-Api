@@ -90,6 +90,7 @@ class IncidentAnalyzeApiTest {
         alerta.setSnapshotUrl(snapshotUrl);
         alerta.setDataHora(OffsetDateTime.now());
         alerta.setStatus(com.dev4.cypher.model.AlertaStatus.PENDENTE);
+        alerta.setEmpresaId(com.dev4.cypher.security.AuthTestSupport.EMPRESA_ID);
         return alertas.save(alerta).getId();
     }
 

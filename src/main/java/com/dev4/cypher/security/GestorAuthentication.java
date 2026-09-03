@@ -9,10 +9,12 @@ import java.util.List;
 public class GestorAuthentication extends AbstractAuthenticationToken {
 
     private final String username;
+    private final String empresaId;
 
-    public GestorAuthentication(String username) {
+    public GestorAuthentication(String username, String empresaId) {
         super(List.of(new SimpleGrantedAuthority("ROLE_GESTOR")));
         this.username = username;
+        this.empresaId = empresaId;
         setAuthenticated(true);
     }
 
@@ -29,5 +31,9 @@ public class GestorAuthentication extends AbstractAuthenticationToken {
 
     public String getUsername() {
         return username;
+    }
+
+    public String getEmpresaId() {
+        return empresaId;
     }
 }

@@ -77,7 +77,6 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/setup/status").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/setup").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/login-estacao")
                         .permitAll()

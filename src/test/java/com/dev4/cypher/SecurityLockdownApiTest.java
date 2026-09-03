@@ -33,21 +33,17 @@ class SecurityLockdownApiTest {
     }
 
     @Test
-    void setupStatusContinuaPublico() throws Exception {
-        mvc.perform(get("/api/v1/setup/status")).andExpect(status().isOk());
-    }
-
-    @Test
     void setupPosConfiguradoDevolve409NaoAutenticacao() throws Exception {
-        // Garante que ao menos um Usuario já existe (o gestor bootstrap,
-        // idempotente — ver AuthTestSupport). A prova aqui é que a resposta
-        // é 409 (endpoint de execução única já fechado), não 401: POST
+        // Garante que ao menos uma Empresa com o slug "acme-test" já existe
+        // (o gestor bootstrap, idempotente — ver AuthTestSupport). A prova
+        // aqui é que a resposta é 409 (slug ja cadastrado), não 401: POST
         // /setup continua público mesmo travado, nunca escondido atrás de
-        // sessão/papel (spec E4 §2.5/§2.6).
+        // sessão/papel (spec E4 §2.5/§2.6/§3).
         loginGestorBootstrap(mvc);
 
         mvc.perform(post("/api/v1/setup").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\": \"outro\", \"password\": \"x\"}"))
+                        .content("{\"username\": \"outro\", \"password\": \"x\", "
+                                + "\"empresaId\": \"acme-test\", \"empresaNome\": \"Acme Test\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.erro").exists());
     }
@@ -137,7 +133,7 @@ class SecurityLockdownApiTest {
                         .andReturn().getResponse().getContentAsString(),
                 "$.token");
         MockHttpSession operador = loginOperador(mvc, token);
-        String chave = cameras.findById("CAM-98").orElseThrow().getApiKey();
+        String chave = cameras.findById("acme-test:CAM-98").orElseThrow().getApiKey();
 
         mvc.perform(get("/api/v1/incidents").session(operador).header(HEADER, chave))
                 .andExpect(status().isForbidden());

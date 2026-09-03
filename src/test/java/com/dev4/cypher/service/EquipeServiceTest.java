@@ -7,11 +7,14 @@ import com.dev4.cypher.model.Estacao;
 import com.dev4.cypher.model.Turno;
 import com.dev4.cypher.repository.EquipeRepository;
 import com.dev4.cypher.repository.EstacaoRepository;
+import com.dev4.cypher.security.GestorAuthentication;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,8 +36,19 @@ class EquipeServiceTest {
     @BeforeEach
     void setUp() {
         service = new EquipeService(equipes, estacoes);
-        estacoes.save(new Estacao("EST-01", "Esteira", "montagem", true, "tok-EST-01"));
-        estacoes.saveAndFlush(new Estacao("EST-02", "Prensa", "estamparia", true, "tok-EST-02"));
+        SecurityContextHolder.getContext().setAuthentication(
+                new GestorAuthentication("gestor@demo", "demo"));
+        estacoes.save(new Estacao("demo:EST-01", "Esteira", "montagem", true, "tok-EST-01", "demo"));
+        estacoes.saveAndFlush(new Estacao("demo:EST-02", "Prensa", "estamparia", true, "tok-EST-02", "demo"));
+    }
+
+    @AfterEach
+    void limparContexto() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void autenticarComo(GestorAuthentication auth) {
+        SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     private TeamRequest equipeA() {
@@ -123,7 +137,7 @@ class EquipeServiceTest {
         service.criar(equipeA());
 
         assertThat(service.remover("EQ-01")).isTrue();
-        assertThat(equipes.findById("EQ-01")).isEmpty();
+        assertThat(equipes.findById("demo:EQ-01")).isEmpty();
     }
 
     @Test
@@ -162,5 +176,20 @@ class EquipeServiceTest {
 
         assertThat(service.listar()).extracting(TeamResponse::id)
                 .containsExactlyInAnyOrder("EQ-01", "EQ-02");
+    }
+
+    @Test
+    void listaDeEquipesNaoVazaEntreEmpresas() {
+        service.criar(equipeA());
+
+        autenticarComo(new GestorAuthentication("gestor@globex", "globex"));
+        estacoes.saveAndFlush(new Estacao("globex:EST-01", "Esteira", "montagem", true, "tok-globex-EST-01", "globex"));
+        service.criar(equipeA());
+
+        List<TeamResponse> deDemo;
+        autenticarComo(new GestorAuthentication("gestor@demo", "demo"));
+        deDemo = service.listar();
+
+        assertThat(deDemo).extracting(TeamResponse::id).containsExactly("EQ-01");
     }
 }

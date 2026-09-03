@@ -59,7 +59,7 @@ public class WebhookDispatcher {
         IncidentResponse incidente = event.incident();
         String payload = serializar(incidente);
 
-        for (WebhookSubscription assinatura : assinaturas.findByAtivoTrue()) {
+        for (WebhookSubscription assinatura : assinaturas.findByEmpresaIdAndAtivoTrue(incidente.empresaId())) {
             if (incidente.severity() < assinatura.getMinSeverity()) {
                 continue;
             }

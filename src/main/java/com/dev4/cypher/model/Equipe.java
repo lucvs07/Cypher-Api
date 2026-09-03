@@ -36,7 +36,7 @@ public class Equipe {
 
     /** Identificador legível, ex.: EQ-01. */
     @Id
-    @Column(length = 64)
+    @Column(length = 100)
     private String id;
 
     @Column(nullable = false, length = 120)
@@ -48,8 +48,11 @@ public class Equipe {
 
     @ElementCollection
     @CollectionTable(name = "equipe_estacoes", joinColumns = @JoinColumn(name = "equipe_id"))
-    @Column(name = "estacao_id")
+    @Column(name = "estacao_id", length = 100)
     private List<String> estacaoIds = new ArrayList<>();
 
     private boolean ativa;
+
+    @Column(nullable = false, length = 30)
+    private String empresaId;
 }

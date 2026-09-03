@@ -65,8 +65,8 @@ class IncidentOperatorScopeApiTest {
                 .content("{\"id\": \"CAM-92\", \"nome\": \"C2\", \"estacaoId\": \"EST-92\", "
                         + "\"streamUrl\": \"http://127.0.0.1:8292/stream\", \"fonte\": \"f\"}"));
 
-        String chaveCam91 = cameras.findById("CAM-91").orElseThrow().getApiKey();
-        String chaveCam92 = cameras.findById("CAM-92").orElseThrow().getApiKey();
+        String chaveCam91 = cameras.findById("acme-test:CAM-91").orElseThrow().getApiKey();
+        String chaveCam92 = cameras.findById("acme-test:CAM-92").orElseThrow().getApiKey();
 
         // Cada ingestão usa a chave DA PRÓPRIA câmera (achado de segurança da
         // revisão final: uma chave só pode agir sobre a câmera a que pertence).
@@ -89,7 +89,7 @@ class IncidentOperatorScopeApiTest {
         // ingestão HTTP (que não é o que este teste exercita).
         idIncidenteCameraDesconhecida = alertas.saveAndFlush(incidenteDireto("op3", "CAM-DESCONHECIDA")).getId();
 
-        String token = estacoes.findById("EST-91").orElseThrow().getToken();
+        String token = estacoes.findById("acme-test:EST-91").orElseThrow().getToken();
         operadorEst01 = loginOperador(mvc, token);
     }
 
@@ -111,6 +111,7 @@ class IncidentOperatorScopeApiTest {
         a.setDescricao("Fixture direto (%s)".formatted(cameraId));
         a.setDataHora(java.time.OffsetDateTime.parse("2026-08-10T14:31:02.482-03:00"));
         a.setStatus(AlertaStatus.PENDENTE);
+        a.setEmpresaId("acme-test");
         return a;
     }
 

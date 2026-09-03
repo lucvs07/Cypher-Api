@@ -18,29 +18,29 @@ class EquipeRepositoryTest {
 
     @Test
     void persisteEstacaoIdsComoElementCollection() {
-        equipes.saveAndFlush(new Equipe("EQ-01", "Equipe A", Turno.MANHA,
-                List.of("EST-01", "EST-02"), true));
+        equipes.saveAndFlush(new Equipe("demo:EQ-01", "Equipe A", Turno.MANHA,
+                List.of("demo:EST-01", "demo:EST-02"), true, "demo"));
 
-        Equipe lida = equipes.findById("EQ-01").orElseThrow();
-        assertThat(lida.getEstacaoIds()).containsExactlyInAnyOrder("EST-01", "EST-02");
+        Equipe lida = equipes.findById("demo:EQ-01").orElseThrow();
+        assertThat(lida.getEstacaoIds()).containsExactlyInAnyOrder("demo:EST-01", "demo:EST-02");
         assertThat(lida.getTurno()).isEqualTo(Turno.MANHA);
     }
 
     @Test
     void listaApenasEquipesAtivas() {
-        equipes.save(new Equipe("EQ-01", "Ativa", Turno.MANHA, List.of("EST-01"), true));
-        equipes.saveAndFlush(new Equipe("EQ-02", "Inativa", Turno.TARDE, List.of("EST-02"), false));
+        equipes.save(new Equipe("demo:EQ-01", "Ativa", Turno.MANHA, List.of("demo:EST-01"), true, "demo"));
+        equipes.saveAndFlush(new Equipe("demo:EQ-02", "Inativa", Turno.TARDE, List.of("demo:EST-02"), false, "demo"));
 
-        assertThat(equipes.findByAtivaTrue()).extracting(Equipe::getId).containsExactly("EQ-01");
+        assertThat(equipes.findByAtivaTrue()).extracting(Equipe::getId).containsExactly("demo:EQ-01");
     }
 
     @Test
     void encontraEquipesPeloTurno() {
-        equipes.save(new Equipe("EQ-01", "Manha", Turno.MANHA, List.of("EST-01"), true));
-        equipes.save(new Equipe("EQ-02", "Tarde", Turno.TARDE, List.of("EST-01"), true));
-        equipes.saveAndFlush(new Equipe("EQ-03", "Manha 2", Turno.MANHA, List.of("EST-02"), true));
+        equipes.save(new Equipe("demo:EQ-01", "Manha", Turno.MANHA, List.of("demo:EST-01"), true, "demo"));
+        equipes.save(new Equipe("demo:EQ-02", "Tarde", Turno.TARDE, List.of("demo:EST-01"), true, "demo"));
+        equipes.saveAndFlush(new Equipe("demo:EQ-03", "Manha 2", Turno.MANHA, List.of("demo:EST-02"), true, "demo"));
 
         assertThat(equipes.findByTurno(Turno.MANHA)).extracting(Equipe::getId)
-                .containsExactlyInAnyOrder("EQ-01", "EQ-03");
+                .containsExactlyInAnyOrder("demo:EQ-01", "demo:EQ-03");
     }
 }

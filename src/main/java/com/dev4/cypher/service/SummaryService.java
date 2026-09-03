@@ -6,6 +6,7 @@ import com.dev4.cypher.dto.SummaryResponse;
 import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.repository.AlertaRepository;
+import com.dev4.cypher.security.TenantContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +43,13 @@ public class SummaryService {
         LocalDate ontem = hoje.minusDays(1);
         OffsetDateTime inicioDaJanela = hoje.minusDays(6).atStartOfDay(zona).toOffsetDateTime();
 
-        List<Alerta> janela = repository.findAll().stream()
+        // Escopado por tenant (achado de segurança carregado da Tarefa 4):
+        // sem isso, todo GESTOR enxergava as contagens/heatmap de QUALQUER
+        // empresa. Uma única busca alimenta tanto a janela de 7 dias quanto
+        // os pendentes — ambos eram `findAll()` antes desta correção.
+        List<Alerta> doTenant = repository.findByEmpresaId(TenantContext.currentEmpresaId());
+
+        List<Alerta> janela = doTenant.stream()
                 .filter(a -> !a.getDataHora().isBefore(inicioDaJanela))
                 .toList();
 
@@ -70,7 +77,9 @@ public class SummaryService {
                 if (a.getSeveridade() >= 3) {
                     criticosHoje++;
                 }
-                String estacaoId = estacaoPorCamera.get(a.getCameraId());
+                // a.getCameraId() é prefixado pelo tenant desde a Tarefa 5;
+                // estacaoPorCamera é chaveado pelo código puro (CameraResponse.id()).
+                String estacaoId = estacaoPorCamera.get(TenantContext.codigo(a.getCameraId()));
                 if (estacaoId != null) {
                     porEstacaoHoje.merge(estacaoId, 1, Integer::sum);
                 }
@@ -93,7 +102,7 @@ public class SummaryService {
             serie.add(new SummaryResponse.DayCount(dia, porDia.getOrDefault(dia, 0)));
         }
 
-        int pendentes = (int) repository.findAll().stream()
+        int pendentes = (int) doTenant.stream()
                 .filter(a -> a.getStatus() == AlertaStatus.PENDENTE)
                 .count();
 

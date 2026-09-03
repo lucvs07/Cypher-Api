@@ -33,6 +33,7 @@ public record IncidentResponse(
         Double durationSeconds,
         Integer peakSeverity,
         ClosedReason closedReason,
-        AlertaStatus status
+        AlertaStatus status,
+        String empresaId
 ) {
 }
