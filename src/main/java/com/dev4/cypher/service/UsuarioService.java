@@ -37,7 +37,7 @@ public class UsuarioService {
 
     @Transactional(readOnly = true)
     public List<UsuarioResponse> listar() {
-        return usuarios.findAll().stream().map(this::toResponse).toList();
+        return usuarios.findByEmpresaId(TenantContext.currentEmpresaId()).stream().map(this::toResponse).toList();
     }
 
     @Transactional

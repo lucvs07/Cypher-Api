@@ -47,6 +47,10 @@ class EquipeServiceTest {
         SecurityContextHolder.clearContext();
     }
 
+    private void autenticarComo(GestorAuthentication auth) {
+        SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
     private TeamRequest equipeA() {
         return new TeamRequest("EQ-01", "Equipe A", Turno.MANHA, List.of("EST-01"), null);
     }
@@ -172,5 +176,20 @@ class EquipeServiceTest {
 
         assertThat(service.listar()).extracting(TeamResponse::id)
                 .containsExactlyInAnyOrder("EQ-01", "EQ-02");
+    }
+
+    @Test
+    void listaDeEquipesNaoVazaEntreEmpresas() {
+        service.criar(equipeA());
+
+        autenticarComo(new GestorAuthentication("gestor@globex", "globex"));
+        estacoes.saveAndFlush(new Estacao("globex:EST-01", "Esteira", "montagem", true, "tok-globex-EST-01", "globex"));
+        service.criar(equipeA());
+
+        List<TeamResponse> deDemo;
+        autenticarComo(new GestorAuthentication("gestor@demo", "demo"));
+        deDemo = service.listar();
+
+        assertThat(deDemo).extracting(TeamResponse::id).containsExactly("EQ-01");
     }
 }

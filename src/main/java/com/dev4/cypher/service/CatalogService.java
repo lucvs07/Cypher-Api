@@ -52,7 +52,9 @@ public class CatalogService {
 
     @Transactional(readOnly = true)
     public List<CameraResponse> cameras(boolean incluirInativas) {
-        List<Camera> base = incluirInativas ? cameras.findAll() : cameras.findByAtivaTrue();
+        String empresaId = TenantContext.currentEmpresaId();
+        List<Camera> base = incluirInativas
+                ? cameras.findByEmpresaId(empresaId) : cameras.findByEmpresaIdAndAtivaTrue(empresaId);
         return base.stream().map(this::toResponse).toList();
     }
 
@@ -63,7 +65,9 @@ public class CatalogService {
 
     @Transactional(readOnly = true)
     public List<StationResponse> stations(boolean incluirInativas) {
-        List<Estacao> base = incluirInativas ? estacoes.findAll() : estacoes.findByAtivaTrue();
+        String empresaId = TenantContext.currentEmpresaId();
+        List<Estacao> base = incluirInativas
+                ? estacoes.findByEmpresaId(empresaId) : estacoes.findByEmpresaIdAndAtivaTrue(empresaId);
         return base.stream().map(this::toResponse).toList();
     }
 

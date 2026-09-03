@@ -12,5 +12,9 @@ public interface EstacaoRepository extends JpaRepository<Estacao, String> {
 
     List<Estacao> findByAtivaTrue();
 
+    List<Estacao> findByEmpresaId(String empresaId);
+
+    List<Estacao> findByEmpresaIdAndAtivaTrue(String empresaId);
+
     Optional<Estacao> findByToken(String token);
 }

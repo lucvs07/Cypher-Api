@@ -4,7 +4,12 @@ import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.AlertaNivel;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.model.AlertaTipo;
+import com.dev4.cypher.model.Camera;
+import com.dev4.cypher.model.Estacao;
 import com.dev4.cypher.repository.AlertaRepository;
+import com.dev4.cypher.repository.CameraRepository;
+import com.dev4.cypher.repository.EstacaoRepository;
+import com.dev4.cypher.security.AuthTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +51,12 @@ class SummaryApiTest {
     @Autowired
     private AlertaRepository repository;
 
+    @Autowired
+    private EstacaoRepository estacoes;
+
+    @Autowired
+    private CameraRepository cameras;
+
     private MockHttpSession gestor;
 
     private Alerta incidente(String key, String camera, int severidade, OffsetDateTime quando) {
@@ -67,13 +78,37 @@ class SummaryApiTest {
         a.setEpiMissing(List.of());
         a.setDataHora(quando);
         a.setStatus(AlertaStatus.PENDENTE);
-        a.setEmpresaId("demo");
+        a.setEmpresaId(AuthTestSupport.EMPRESA_ID);
         return a;
+    }
+
+    /**
+     * Estações/câmeras próprias do tenant de teste ({@code acme-test}), não
+     * as que o {@code CatalogSeeder} semeia sob {@code demo} a partir das
+     * propriedades acima — desde que {@code CatalogService.stations()}
+     * passou a ser escopado por tenant (Tarefa 4), usar o catálogo do
+     * {@code demo} sob uma sessão {@code acme-test} não aparece mais no
+     * heatmap.
+     */
+    private void semearCatalogoDoTenant() {
+        String est01 = "acme-test:EST-01";
+        String est02 = "acme-test:EST-02";
+        estacoes.save(new Estacao(est01, "Esteira de montagem", "montagem", true,
+                "tok-acme-test-EST-01", AuthTestSupport.EMPRESA_ID));
+        estacoes.saveAndFlush(new Estacao(est02, "Prensa 3", "estamparia", true,
+                "tok-acme-test-EST-02", AuthTestSupport.EMPRESA_ID));
+        cameras.save(new Camera("acme-test:CAM-01", "Frontal", est01,
+                "http://127.0.0.1:9090/stream", "rtsp://a", true,
+                "key-acme-test-CAM-01", AuthTestSupport.EMPRESA_ID));
+        cameras.saveAndFlush(new Camera("acme-test:CAM-02", "Lateral", est02,
+                "http://127.0.0.1:9091/stream", "rtsp://b", true,
+                "key-acme-test-CAM-02", AuthTestSupport.EMPRESA_ID));
     }
 
     @BeforeEach
     void semear() throws Exception {
         gestor = loginGestorBootstrap(mvc);
+        semearCatalogoDoTenant();
         repository.deleteAll();
         OffsetDateTime agora = OffsetDateTime.now();
         repository.save(incidente("s1", "CAM-01", 4, agora.minusHours(1)));

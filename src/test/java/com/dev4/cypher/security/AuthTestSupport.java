@@ -22,6 +22,7 @@ public final class AuthTestSupport {
      */
     public static final String GESTOR_USERNAME = "admin@acme-test";
     public static final String GESTOR_PASSWORD = "admin123";
+    public static final String EMPRESA_ID = "acme-test";
 
     private AuthTestSupport() {
     }

@@ -29,7 +29,7 @@ public class EquipeService {
 
     @Transactional(readOnly = true)
     public List<TeamResponse> listar() {
-        return equipes.findAll().stream().map(this::toResponse).toList();
+        return equipes.findByEmpresaId(TenantContext.currentEmpresaId()).stream().map(this::toResponse).toList();
     }
 
     @Transactional
@@ -91,7 +91,7 @@ public class EquipeService {
 
     /** (estacaoId, turno) e unico a nivel de aplicacao (spec E4 §3) — nunca constraint de banco. */
     private void exigirSemConflito(List<String> estacaoIdsPrefixados, Turno turno, String idPropria) {
-        equipes.findByTurno(turno).stream()
+        equipes.findByEmpresaIdAndTurno(TenantContext.currentEmpresaId(), turno).stream()
                 .filter(outra -> !outra.getId().equals(idPropria))
                 .forEach(outra -> {
                     for (String estacaoId : estacaoIdsPrefixados) {

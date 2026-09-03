@@ -17,6 +17,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,6 +47,10 @@ class UsuarioServiceTest {
     @AfterEach
     void limparContexto() {
         SecurityContextHolder.clearContext();
+    }
+
+    private void autenticarComo(GestorAuthentication auth) {
+        SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     private UserRequest gestor2() {
@@ -184,5 +189,19 @@ class UsuarioServiceTest {
     @Test
     void removerInexistenteDevolveFalso() {
         assertThat(service.remover("nao-existe")).isFalse();
+    }
+
+    @Test
+    void listaDeUsuariosNaoVazaEntreEmpresas() {
+        service.criar(gestor2());
+
+        autenticarComo(new GestorAuthentication("gestor@globex", "globex"));
+        service.criar(gestor2());
+
+        List<UsuarioResponse> deDemo;
+        autenticarComo(new GestorAuthentication("gestor@demo", "demo"));
+        deDemo = service.listar();
+
+        assertThat(deDemo).extracting(UsuarioResponse::username).containsExactly("gestor2@demo");
     }
 }

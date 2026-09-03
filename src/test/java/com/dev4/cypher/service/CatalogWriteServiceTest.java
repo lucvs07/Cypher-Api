@@ -18,6 +18,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,6 +45,10 @@ class CatalogWriteServiceTest {
     @AfterEach
     void limparContexto() {
         SecurityContextHolder.clearContext();
+    }
+
+    private void autenticarComo(GestorAuthentication auth) {
+        SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     private StationRequest esteira() {
@@ -289,5 +294,20 @@ class CatalogWriteServiceTest {
     void cameraInexistenteDevolveVazio() {
         assertThat(service.camera("CAM-99")).isEmpty();
         assertThat(service.deactivateCamera("CAM-99")).isFalse();
+    }
+
+    @Test
+    void listaDeEstacoesNaoVazaEntreEmpresas() {
+        autenticarComo(new GestorAuthentication("gestor@acme", "acme"));
+        service.createStation(new StationRequest("EST-01", "Acme", "montagem", true));
+
+        autenticarComo(new GestorAuthentication("gestor@globex", "globex"));
+        service.createStation(new StationRequest("EST-01", "Globex", "montagem", true));
+
+        List<StationResponse> deAcme;
+        autenticarComo(new GestorAuthentication("gestor@acme", "acme"));
+        deAcme = service.stations();
+
+        assertThat(deAcme).extracting(StationResponse::nome).containsExactly("Acme");
     }
 }
