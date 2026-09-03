@@ -77,13 +77,15 @@ class CatalogRepositoryTest {
     }
 
     @Test
-    void encontraCameraPelaUrlDeStream() {
+    void encontraCameraPelaUrlDeStreamEscopadaPorEmpresa() {
         cameras.saveAndFlush(new Camera("demo:CAM-01", "Frontal", "demo:EST-01",
                 "http://127.0.0.1:8090/stream", "rtsp://a", true, "key-CAM-01", "demo"));
 
-        assertThat(cameras.findByStreamUrl("http://127.0.0.1:8090/stream"))
+        assertThat(cameras.findByEmpresaIdAndStreamUrl("demo", "http://127.0.0.1:8090/stream"))
                 .isPresent();
-        assertThat(cameras.findByStreamUrl("http://127.0.0.1:9999/stream"))
+        assertThat(cameras.findByEmpresaIdAndStreamUrl("demo", "http://127.0.0.1:9999/stream"))
+                .isEmpty();
+        assertThat(cameras.findByEmpresaIdAndStreamUrl("outra-empresa", "http://127.0.0.1:8090/stream"))
                 .isEmpty();
     }
 

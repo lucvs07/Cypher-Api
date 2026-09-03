@@ -229,6 +229,20 @@ class CatalogWriteServiceTest {
     }
 
     @Test
+    void streamUrlIdenticaEhAceitaEmEmpresasDiferentes() {
+        autenticarComo(new GestorAuthentication("gestor@acme", "acme"));
+        service.createStation(esteira());
+        service.createCamera(frontal());
+
+        autenticarComo(new GestorAuthentication("gestor@globex", "globex"));
+        service.createStation(esteira());
+
+        CameraAdminResponse criada = service.createCamera(frontal());
+
+        assertThat(criada.id()).isEqualTo("CAM-01");
+    }
+
+    @Test
     void recusaStreamUrlSemPortaExplicita() {
         service.createStation(esteira());
 

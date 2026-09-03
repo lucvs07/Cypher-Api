@@ -255,7 +255,7 @@ public class CatalogService {
      * mesmo bind, e um deles morreria no boot.
      */
     private void exigirUrlLivre(String streamUrl, String idPropriaPrefixada) {
-        cameras.findByStreamUrl(streamUrl)
+        cameras.findByEmpresaIdAndStreamUrl(TenantContext.currentEmpresaId(), streamUrl)
                 .filter(outra -> !outra.getId().equals(idPropriaPrefixada))
                 .ifPresent(outra -> {
                     throw new CatalogValidationException(HttpStatus.CONFLICT,

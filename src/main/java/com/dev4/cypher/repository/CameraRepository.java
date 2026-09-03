@@ -20,7 +20,7 @@ public interface CameraRepository extends JpaRepository<Camera, String> {
 
     List<Camera> findByEmpresaIdAndAtivaTrue(String empresaId);
 
-    Optional<Camera> findByStreamUrl(String streamUrl);
+    Optional<Camera> findByEmpresaIdAndStreamUrl(String empresaId, String streamUrl);
 
     Optional<Camera> findByApiKey(String apiKey);
 }
