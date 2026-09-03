@@ -1,6 +1,7 @@
 package com.dev4.cypher.sse;
 
 import com.dev4.cypher.dto.IncidentResponse;
+import com.dev4.cypher.model.Camera;
 import com.dev4.cypher.repository.CameraRepository;
 import com.dev4.cypher.security.TenantContext;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -9,15 +10,17 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Registro em memória das conexões SSE abertas, com escopo opcional por
- * estação: uma inscrição `OPERADOR` (estacaoId não nula) só recebe
- * incidentes cuja câmera pertence à mesma estação; uma inscrição irrestrita
- * (GESTOR, estacaoId nula) recebe tudo — mesma política de 403 de
- * `IncidentController`, mas expressa como filtro em vez de rejeição (uma
- * conexão SSE não tem por onde devolver 403 a meio do fluxo).
+ * Registro em memória das conexões SSE abertas, escopado por empresa e, dentro
+ * dela, opcionalmente por estação: uma inscrição sempre exige `empresaId` — só
+ * recebe incidentes do próprio tenant; uma inscrição `OPERADOR` (estacaoId não
+ * nula) ainda restringe às câmeras da própria estação, enquanto uma inscrição
+ * irrestrita (GESTOR, estacaoId nula) recebe tudo dentro da empresa — mesma
+ * política de 403 de `IncidentController`, mas expressa como filtro em vez de
+ * rejeição (uma conexão SSE não tem por onde devolver 403 a meio do fluxo).
  *
  * <p>Estado volátil por natureza: reiniciar a aplicação derruba as conexões,
  * não os dados. O broadcast é por instância — adequado ao deploy de instância
@@ -28,7 +31,7 @@ public class IncidentSseService {
 
     private static final long SEM_TIMEOUT = 0L;
 
-    private record Subscription(SseEmitter emitter, String estacaoId) {
+    private record Subscription(SseEmitter emitter, String empresaId, String estacaoId) {
     }
 
     private final CameraRepository cameras;
@@ -38,18 +41,18 @@ public class IncidentSseService {
         this.cameras = cameras;
     }
 
-    /** Irrestrito — usado por GESTOR e por quem ainda não tem sessão. */
-    public SseEmitter subscribe() {
-        return subscribe(null);
+    /** Irrestrito dentro da própria empresa — usado por GESTOR. */
+    public SseEmitter subscribe(String empresaId) {
+        return subscribe(empresaId, null);
     }
 
-    /** @param estacaoId nulo = sem filtro (GESTOR); não-nulo = só incidentes dessa estação (OPERADOR). */
-    public SseEmitter subscribe(String estacaoId) {
-        return register(new SseEmitter(SEM_TIMEOUT), estacaoId);
+    /** @param estacaoId nulo = sem filtro de estação dentro da empresa (GESTOR); não-nulo = só incidentes dessa estação (OPERADOR). */
+    public SseEmitter subscribe(String empresaId, String estacaoId) {
+        return register(new SseEmitter(SEM_TIMEOUT), empresaId, estacaoId);
     }
 
-    public SseEmitter register(SseEmitter emitter, String estacaoId) {
-        Subscription subscription = new Subscription(emitter, estacaoId);
+    public SseEmitter register(SseEmitter emitter, String empresaId, String estacaoId) {
+        Subscription subscription = new Subscription(emitter, empresaId, estacaoId);
         subscriptions.add(subscription);
         emitter.onCompletion(() -> subscriptions.remove(subscription));
         emitter.onTimeout(() -> subscriptions.remove(subscription));
@@ -58,10 +61,13 @@ public class IncidentSseService {
     }
 
     public void broadcast(String eventName, IncidentResponse incident) {
-        String estacaoDoIncidente = cameras.findById(TenantContext.key(incident.cameraId()))
-                .map(c -> c.getEstacaoId())
+        String estacaoDoIncidente = cameras.findById(
+                        TenantContext.key(incident.empresaId(), incident.cameraId()))
+                .map(Camera::getEstacaoId)
+                .map(TenantContext::codigo)
                 .orElse(null);
-        enviarAosQueEnxergam(estacaoDoIncidente, SseEmitter.event().name(eventName).data(incident));
+        enviarAosQueEnxergam(incident.empresaId(), estacaoDoIncidente,
+                SseEmitter.event().name(eventName).data(incident));
     }
 
     /** Mantém a conexão viva através de proxies e detecta cliente morto. */
@@ -74,11 +80,13 @@ public class IncidentSseService {
         return subscriptions.size();
     }
 
-    private void enviarAosQueEnxergam(String estacaoDoIncidente, SseEmitter.SseEventBuilder evento) {
+    private void enviarAosQueEnxergam(String empresaDoIncidente, String estacaoDoIncidente,
+                                      SseEmitter.SseEventBuilder evento) {
         for (Subscription subscription : subscriptions) {
-            boolean enxerga = subscription.estacaoId() == null
+            boolean mesmaEmpresa = Objects.equals(subscription.empresaId(), empresaDoIncidente);
+            boolean enxergaEstacao = subscription.estacaoId() == null
                     || subscription.estacaoId().equals(estacaoDoIncidente);
-            if (!enxerga) {
+            if (!mesmaEmpresa || !enxergaEstacao) {
                 continue;
             }
             enviar(subscription, evento);

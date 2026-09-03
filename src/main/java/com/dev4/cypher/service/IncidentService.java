@@ -117,14 +117,16 @@ public class IncidentService {
                 .map(mapper::toResponse);
     }
 
+    /** Escopado por empresa (achado de segurança pós-Tarefa 5): um id de outro tenant nunca é encontrado. */
     @Transactional(readOnly = true)
     public Optional<IncidentResponse> findById(Long id) {
-        return repository.findById(id).map(mapper::toResponse);
+        return repository.findByIdAndEmpresaId(id, TenantContext.currentEmpresaId()).map(mapper::toResponse);
     }
 
+    /** Escopado por empresa pela mesma razão de {@link #findById(Long)}. */
     @Transactional
     public Optional<IncidentResponse> changeStatus(Long id, AlertaStatus status) {
-        return repository.findById(id).map(alerta -> {
+        return repository.findByIdAndEmpresaId(id, TenantContext.currentEmpresaId()).map(alerta -> {
             alerta.setStatus(status);
             IncidentResponse response = mapper.toResponse(repository.saveAndFlush(alerta));
             publisher.publishEvent(new IncidentChangedEvent(response));

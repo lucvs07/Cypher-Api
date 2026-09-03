@@ -2,6 +2,7 @@ package com.dev4.cypher.controller;
 
 import com.dev4.cypher.llm.LlmAnalysisService;
 import com.dev4.cypher.repository.CameraRepository;
+import com.dev4.cypher.security.GestorAuthentication;
 import com.dev4.cypher.security.OperadorAuthentication;
 import com.dev4.cypher.service.IncidentService;
 import com.dev4.cypher.sse.IncidentSseService;
@@ -13,12 +14,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 /**
- * Achado da revisão da Tarefa 5: {@code estacaoIdDoOperadorAtual()} passou a
- * devolver o código puro (para {@code IncidentService.search}, Step 5 do
- * plano) — mas {@code IncidentSseService.broadcast} compara contra
- * {@code Camera.estacaoId}, que é PREFIXADO. Sem reprefixar em
- * {@code stream()}, o OPERADOR se inscrevia com o código puro e nunca
- * recebia broadcast algum (o filtro nunca batia).
+ * {@code stream()} sempre passa o {@code empresaId} da sessão atual (Tarefa 6)
+ * — a inscrição no SSE nunca é irrestrita entre tenants, mesmo para GESTOR.
+ * A {@code estacaoId} do OPERADOR chega em código puro, a mesma forma que
+ * {@code IncidentSseService.broadcast} agora compara (Tarefa 6, achado da
+ * revisão da Tarefa 5 sobre reprefixação).
  */
 class IncidentControllerStreamTest {
 
@@ -28,7 +28,7 @@ class IncidentControllerStreamTest {
     }
 
     @Test
-    void streamReprefixaEstacaoIdDoOperadorAntesDeInscrever() {
+    void streamDeOperadorSeInscreveNaPropriaEmpresaEEstacao() {
         IncidentSseService sse = mock(IncidentSseService.class);
         CameraRepository cameras = mock(CameraRepository.class);
         IncidentService service = mock(IncidentService.class);
@@ -40,19 +40,22 @@ class IncidentControllerStreamTest {
 
         controller.stream();
 
-        verify(sse).subscribe("acme-test:EST-91");
+        verify(sse).subscribe("acme-test", "EST-91");
     }
 
     @Test
-    void streamDeGestorSeInscreveSemFiltro() {
+    void streamDeGestorSeInscreveNaPropriaEmpresaSemFiltroDeEstacao() {
         IncidentSseService sse = mock(IncidentSseService.class);
         CameraRepository cameras = mock(CameraRepository.class);
         IncidentService service = mock(IncidentService.class);
         LlmAnalysisService llm = mock(LlmAnalysisService.class);
         IncidentController controller = new IncidentController(service, sse, cameras, llm);
 
+        SecurityContextHolder.getContext().setAuthentication(
+                new GestorAuthentication("gestor@acme-test", "acme-test"));
+
         controller.stream();
 
-        verify(sse).subscribe(null);
+        verify(sse).subscribe("acme-test", null);
     }
 }

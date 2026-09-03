@@ -56,17 +56,14 @@ public class IncidentController {
     }
 
     /**
-     * Fluxo de incidentes em tempo real; OPERADOR recebe um fluxo já filtrado
-     * pela própria estação. {@link IncidentSseService} compara contra
-     * {@code Camera.estacaoId} (prefixado) — diferente de
-     * {@code estacaoIdDoOperadorAtual()}, que devolve o código puro para
-     * {@code IncidentService.search} (Step 5); aqui é reprefixado antes de
-     * repassar.
+     * Fluxo de incidentes em tempo real, sempre restrito à empresa da sessão
+     * atual; OPERADOR recebe, além disso, um fluxo filtrado pela própria
+     * estação. {@link IncidentSseService} compara ambos como código puro —
+     * mesma forma devolvida por {@code estacaoIdDoOperadorAtual()}.
      */
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream() {
-        String estacaoId = estacaoIdDoOperadorAtual();
-        return sse.subscribe(estacaoId == null ? null : TenantContext.key(estacaoId));
+        return sse.subscribe(TenantContext.currentEmpresaId(), estacaoIdDoOperadorAtual());
     }
 
     /**
