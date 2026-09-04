@@ -107,6 +107,36 @@ class WebhookControllerApiTest {
     }
 
     @Test
+    void assinanteDesativadoReapareceComIncluirInativosEPodeSerReativado() throws Exception {
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        String corpo = mvc.perform(post("/api/v1/webhooks").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\": \"https://exemplo.com/reativar\", \"secret\": \"x\", "
+                                + "\"minSeverity\": 0, \"ativo\": true}"))
+                .andReturn().getResponse().getContentAsString();
+        Number id = com.jayway.jsonpath.JsonPath.read(corpo, "$.id");
+
+        mvc.perform(delete("/api/v1/webhooks/" + id).session(session))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/v1/webhooks").session(session))
+                .andExpect(jsonPath("$[?(@.url=='https://exemplo.com/reativar')]").isEmpty());
+
+        mvc.perform(get("/api/v1/webhooks").session(session).param("incluirInativos", "true"))
+                .andExpect(jsonPath("$[?(@.url=='https://exemplo.com/reativar')]").isNotEmpty());
+
+        mvc.perform(put("/api/v1/webhooks/" + id).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\": \"https://exemplo.com/reativar\", \"secret\": \"x\", "
+                                + "\"minSeverity\": 0, \"ativo\": true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ativo").value(true));
+
+        mvc.perform(get("/api/v1/webhooks").session(session))
+                .andExpect(jsonPath("$[?(@.url=='https://exemplo.com/reativar')]").isNotEmpty());
+    }
+
+    @Test
     void assinanteDeUmaEmpresaNaoApareceEditaOuDesativaPorOutra() throws Exception {
         MockHttpSession sessaoAcme = setupEmpresa("acme-wh", "Acme");
         MockHttpSession sessaoGlobex = setupEmpresa("globex-wh", "Globex");

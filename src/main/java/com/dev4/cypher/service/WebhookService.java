@@ -31,9 +31,12 @@ public class WebhookService {
     }
 
     @Transactional(readOnly = true)
-    public List<WebhookResponse> listar() {
-        return assinaturas.findByEmpresaIdAndAtivoTrue(TenantContext.currentEmpresaId()).stream()
-                .map(this::toResponse).toList();
+    public List<WebhookResponse> listar(boolean incluirInativos) {
+        String empresaId = TenantContext.currentEmpresaId();
+        List<WebhookSubscription> subs = incluirInativos
+                ? assinaturas.findByEmpresaId(empresaId)
+                : assinaturas.findByEmpresaIdAndAtivoTrue(empresaId);
+        return subs.stream().map(this::toResponse).toList();
     }
 
     @Transactional

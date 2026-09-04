@@ -40,8 +40,8 @@ public class WebhookController {
     }
 
     @GetMapping
-    public List<WebhookResponse> list() {
-        return service.listar();
+    public List<WebhookResponse> list(@RequestParam(defaultValue = "false") boolean incluirInativos) {
+        return service.listar(incluirInativos);
     }
 
     @PostMapping

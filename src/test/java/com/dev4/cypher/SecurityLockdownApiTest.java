@@ -64,6 +64,11 @@ class SecurityLockdownApiTest {
     }
 
     @Test
+    void webhooksSemSessaoDevolve401() throws Exception {
+        mvc.perform(get("/api/v1/webhooks")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void summaryComSessaoGestorDevolve200() throws Exception {
         MockHttpSession gestor = loginGestorBootstrap(mvc);
 
@@ -82,6 +87,20 @@ class SecurityLockdownApiTest {
         MockHttpSession operador = loginOperador(mvc, token);
 
         mvc.perform(get("/api/v1/summary").session(operador)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void webhooksComSessaoOperadorDevolve403() throws Exception {
+        MockHttpSession gestor = loginGestorBootstrap(mvc);
+        mvc.perform(post("/api/v1/stations").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EST-93\", \"nome\": \"A\", \"setor\": \"s\"}"));
+        String token = com.jayway.jsonpath.JsonPath.read(
+                mvc.perform(post("/api/v1/stations/EST-93/token/regenerate").session(gestor))
+                        .andReturn().getResponse().getContentAsString(),
+                "$.token");
+        MockHttpSession operador = loginOperador(mvc, token);
+
+        mvc.perform(get("/api/v1/webhooks").session(operador)).andExpect(status().isForbidden());
     }
 
     @Test
