@@ -36,3 +36,4 @@ build/
 # Diretorio do banco H2 local (spring.datasource.url em application.yaml) —
 # contem tokens de estacao e api keys de camera, nunca deve ser commitado.
 data/
+data.bak-*/
