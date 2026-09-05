@@ -12,8 +12,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
 import static com.dev4.cypher.security.AuthTestSupport.loginOperador;
 import static com.dev4.cypher.security.CypherKeyAuthenticationFilter.HEADER;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -194,6 +196,79 @@ class SecurityLockdownApiTest {
                 .andExpect(status().isOk());
         mvc.perform(post("/api/v1/cameras/CAM-94/apikey/regenerate").session(operador))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void zonasDeCameraExigeGestorNaoOperador() throws Exception {
+        // CRUD de zona de risco não tem linha explícita em SecurityConfig —
+        // cai no catch-all anyRequest().hasRole("GESTOR"). Prova aqui que
+        // uma sessão OPERADOR válida (mesma câmera/estação dela) devolve
+        // 403 em GET/POST/PUT/DELETE, análogo a
+        // cameraAdminItemExigeGestorNaoOperador acima.
+        MockHttpSession gestor = loginGestorBootstrap(mvc);
+        mvc.perform(post("/api/v1/stations").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EST-ZR1\", \"nome\": \"A\", \"setor\": \"s\"}"));
+        mvc.perform(post("/api/v1/cameras").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"CAM-ZRSEC\", \"nome\": \"C\", \"estacaoId\": \"EST-ZR1\", "
+                        + "\"streamUrl\": \"http://127.0.0.1:8321/stream\", \"fonte\": \"f\"}"));
+        String token = com.jayway.jsonpath.JsonPath.read(
+                mvc.perform(post("/api/v1/stations/EST-ZR1/token/regenerate").session(gestor))
+                        .andReturn().getResponse().getContentAsString(),
+                "$.token");
+        MockHttpSession operador = loginOperador(mvc, token);
+
+        String poligono = "[{\"x\":0.2,\"y\":0.2},{\"x\":0.6,\"y\":0.2},{\"x\":0.6,\"y\":0.6}]";
+        String corpoZona = mvc.perform(post("/api/v1/cameras/CAM-ZRSEC/zones").session(gestor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"nome\": \"x\", \"zoneType\": \"RESTRICTED\", "
+                                + "\"polygon\": %s, \"severity\": 2, \"requiredPpe\": []}").formatted(poligono)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Number id = com.jayway.jsonpath.JsonPath.read(corpoZona, "$.id");
+
+        mvc.perform(get("/api/v1/cameras/CAM-ZRSEC/zones").session(operador))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/cameras/CAM-ZRSEC/zones").session(operador)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"nome\": \"y\", \"zoneType\": \"RESTRICTED\", "
+                                + "\"polygon\": %s, \"severity\": 2, \"requiredPpe\": []}").formatted(poligono)))
+                .andExpect(status().isForbidden());
+        mvc.perform(put("/api/v1/cameras/CAM-ZRSEC/zones/" + id).session(operador)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"nome\": \"y\", \"zoneType\": \"RESTRICTED\", "
+                                + "\"polygon\": %s, \"severity\": 2, \"requiredPpe\": []}").formatted(poligono)))
+                .andExpect(status().isForbidden());
+        mvc.perform(delete("/api/v1/cameras/CAM-ZRSEC/zones/" + id).session(operador))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void zonasConfigExigeGestorOuPipelineNaoOperador() throws Exception {
+        // .../zones/config é hasAnyRole("PIPELINE","GESTOR") em
+        // SecurityConfig — uma sessão OPERADOR (que não carrega nenhum dos
+        // dois papéis) também deve cair fora, mesmo sendo a mesma câmera.
+        MockHttpSession gestor = loginGestorBootstrap(mvc);
+        mvc.perform(post("/api/v1/stations").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EST-ZR2\", \"nome\": \"A\", \"setor\": \"s\"}"));
+        mvc.perform(post("/api/v1/cameras").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"CAM-ZRSEC2\", \"nome\": \"C\", \"estacaoId\": \"EST-ZR2\", "
+                        + "\"streamUrl\": \"http://127.0.0.1:8322/stream\", \"fonte\": \"f\"}"));
+        String token = com.jayway.jsonpath.JsonPath.read(
+                mvc.perform(post("/api/v1/stations/EST-ZR2/token/regenerate").session(gestor))
+                        .andReturn().getResponse().getContentAsString(),
+                "$.token");
+        MockHttpSession operador = loginOperador(mvc, token);
+
+        mvc.perform(get("/api/v1/cameras/CAM-ZRSEC2/zones/config").session(operador))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void zonasConfigSemChaveNemSessaoDevolve401() throws Exception {
+        // Espelha cameraConfigSemChaveNemSessaoDevolve401 abaixo para a
+        // rota irmã .../zones/config: sem sessão e sem X-Cypher-Key, deve
+        // ser 401 (anônimo), não 403.
+        mvc.perform(get("/api/v1/cameras/CAM-99/zones/config")).andExpect(status().isUnauthorized());
     }
 
     @Test

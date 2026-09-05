@@ -56,6 +56,99 @@ class ZonaControllerApiTest {
     }
 
     @Test
+    void poligonoPreservaValorEOrdemDosVerticesAposPostEGet() throws Exception {
+        // @OrderColumn em Zona.polygon existe justamente para que recarregar
+        // do banco nunca embaralhe a ordem dos vértices — este teste fixa
+        // valor E índice de cada vértice, não só a contagem. Vértices 2 e 3
+        // ({0.6,0.2} e {0.6,0.6}) detectam uma troca x/y que o vértice 1
+        // ({0.2,0.2}, x==y) sozinho não detectaria.
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        criarCamera(session, "CAM-ZR5", "EST-01");
+
+        mvc.perform(post("/api/v1/cameras/CAM-ZR5/zones").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"nome\": \"Area da prensa\", \"zoneType\": \"RESTRICTED\", "
+                                + "\"polygon\": %s, \"severity\": 4, \"requiredPpe\": [\"capacete\"]}")
+                                .formatted(POLIGONO_VALIDO)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.polygon[0].x").value(0.2))
+                .andExpect(jsonPath("$.polygon[0].y").value(0.2))
+                .andExpect(jsonPath("$.polygon[1].x").value(0.6))
+                .andExpect(jsonPath("$.polygon[1].y").value(0.2))
+                .andExpect(jsonPath("$.polygon[2].x").value(0.6))
+                .andExpect(jsonPath("$.polygon[2].y").value(0.6));
+
+        mvc.perform(get("/api/v1/cameras/CAM-ZR5/zones").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].polygon[0].x").value(0.2))
+                .andExpect(jsonPath("$[0].polygon[0].y").value(0.2))
+                .andExpect(jsonPath("$[0].polygon[1].x").value(0.6))
+                .andExpect(jsonPath("$[0].polygon[1].y").value(0.2))
+                .andExpect(jsonPath("$[0].polygon[2].x").value(0.6))
+                .andExpect(jsonPath("$[0].polygon[2].y").value(0.6));
+    }
+
+    @Test
+    void putMudaQuantidadeDeVerticesEPersisteAposReGet() throws Exception {
+        // @OrderColumn sobre @ElementCollection é o clássico ponto de
+        // Hibernate que quebra ao crescer/encolher a coleção — este teste
+        // troca um polígono de 3 vértices para um de 4 (e re-lê do banco)
+        // para provar que o novo tamanho e os novos valores persistem
+        // corretamente, não só que a contagem bate na resposta do PUT.
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        criarCamera(session, "CAM-ZR6", "EST-01");
+
+        String corpo = mvc.perform(post("/api/v1/cameras/CAM-ZR6/zones").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"nome\": \"Area da prensa\", \"zoneType\": \"RESTRICTED\", "
+                                + "\"polygon\": %s, \"severity\": 4, \"requiredPpe\": []}")
+                                .formatted(POLIGONO_VALIDO)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.polygon.length()").value(3))
+                .andReturn().getResponse().getContentAsString();
+        Number id = JsonPath.read(corpo, "$.id");
+
+        String poligonoQuatroVertices =
+                "[{\"x\":0.1,\"y\":0.1},{\"x\":0.9,\"y\":0.1},{\"x\":0.9,\"y\":0.9},{\"x\":0.1,\"y\":0.9}]";
+        mvc.perform(put("/api/v1/cameras/CAM-ZR6/zones/" + id).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"nome\": \"Area critica\", \"zoneType\": \"ATTENTION\", "
+                                + "\"polygon\": %s, \"severity\": 2, \"requiredPpe\": []}")
+                                .formatted(poligonoQuatroVertices)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.polygon.length()").value(4));
+
+        mvc.perform(get("/api/v1/cameras/CAM-ZR6/zones").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].polygon.length()").value(4))
+                .andExpect(jsonPath("$[0].polygon[0].x").value(0.1))
+                .andExpect(jsonPath("$[0].polygon[0].y").value(0.1))
+                .andExpect(jsonPath("$[0].polygon[1].x").value(0.9))
+                .andExpect(jsonPath("$[0].polygon[1].y").value(0.1))
+                .andExpect(jsonPath("$[0].polygon[2].x").value(0.9))
+                .andExpect(jsonPath("$[0].polygon[2].y").value(0.9))
+                .andExpect(jsonPath("$[0].polygon[3].x").value(0.1))
+                .andExpect(jsonPath("$[0].polygon[3].y").value(0.9));
+    }
+
+    @Test
+    void coordenadaForaDeFaixaDevolve400() throws Exception {
+        // ZoneRequest/PontoRequest validam cada vértice via
+        // @DecimalMin("0.0")/@DecimalMax("1.0") cascateando por
+        // List<@Valid PontoRequest> — este teste fixa que um valor
+        // "estilo pixel" leftover (700, fora de [0,1]) é rejeitado com 400.
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        criarCamera(session, "CAM-ZR7", "EST-01");
+
+        mvc.perform(post("/api/v1/cameras/CAM-ZR7/zones").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\": \"x\", \"zoneType\": \"RESTRICTED\", "
+                                + "\"polygon\": [{\"x\":700,\"y\":300},{\"x\":0.2,\"y\":0.2},{\"x\":0.6,\"y\":0.6}], "
+                                + "\"severity\": 2, \"requiredPpe\": []}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void poligonoComMenosDeTresVerticesDevolve400() throws Exception {
         MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
         criarCamera(session, "CAM-ZR2", "EST-01");
