@@ -86,6 +86,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/me").hasAnyRole("GESTOR", "OPERADOR")
                         .requestMatchers(HttpMethod.GET, "/api/v1/cameras/*/config")
                         .hasAnyRole("PIPELINE", "GESTOR")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/cameras/*/zones/config")
+                        .hasAnyRole("PIPELINE", "GESTOR")
                         .requestMatchers(HttpMethod.GET, "/api/v1/cameras", "/api/v1/stations")
                         .hasAnyRole("GESTOR", "OPERADOR")
                         .requestMatchers(HttpMethod.GET, "/api/v1/incidents", "/api/v1/incidents/*")
