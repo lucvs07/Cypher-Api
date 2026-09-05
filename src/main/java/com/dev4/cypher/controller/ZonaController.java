@@ -32,6 +32,12 @@ public class ZonaController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/config")
+    public ResponseEntity<List<ZoneResponse>> config(@PathVariable String codigo) {
+        return service.config(codigo).map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @PostMapping
     public ResponseEntity<ZoneResponse> create(@PathVariable String codigo, @Valid @RequestBody ZoneRequest req) {
         return service.criar(codigo, req)

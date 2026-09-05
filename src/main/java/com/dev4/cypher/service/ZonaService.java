@@ -34,6 +34,13 @@ public class ZonaService {
                         .stream().map(this::toResponse).toList());
     }
 
+    @Transactional(readOnly = true)
+    public Optional<List<ZoneResponse>> config(String codigo) {
+        return camera(codigo).map(camera ->
+                zonas.findByCameraIdAndEmpresaIdAndAtivaTrue(camera.getId(), TenantContext.currentEmpresaId())
+                        .stream().map(this::toResponse).toList());
+    }
+
     @Transactional
     public Optional<ZoneResponse> criar(String codigo, ZoneRequest req) {
         return camera(codigo).map(camera -> {

@@ -148,6 +148,47 @@ class ZonaControllerApiTest {
                                 .formatted(codigo, estacaoId)));
     }
 
+    @Test
+    void configSoDevolveZonasAtivasEAceitaChaveDePipeline() throws Exception {
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        criarCamera(session, "CAM-CFG1", "EST-01");
+        String corpoAtiva = mvc.perform(post("/api/v1/cameras/CAM-CFG1/zones").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"nome\": \"Ativa\", \"zoneType\": \"RESTRICTED\", "
+                                + "\"polygon\": %s, \"severity\": 2, \"requiredPpe\": []}")
+                                .formatted(POLIGONO_VALIDO)))
+                .andReturn().getResponse().getContentAsString();
+        String corpoInativa = mvc.perform(post("/api/v1/cameras/CAM-CFG1/zones").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"nome\": \"Inativa\", \"zoneType\": \"RESTRICTED\", "
+                                + "\"polygon\": %s, \"severity\": 2, \"requiredPpe\": []}")
+                                .formatted(POLIGONO_VALIDO)))
+                .andReturn().getResponse().getContentAsString();
+        Number idInativa = JsonPath.read(corpoInativa, "$.id");
+        mvc.perform(delete("/api/v1/cameras/CAM-CFG1/zones/" + idInativa).session(session));
+
+        // Acesso GESTOR (sessão).
+        mvc.perform(get("/api/v1/cameras/CAM-CFG1/zones/config").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].nome").value("Ativa"));
+
+        // Acesso por X-Cypher-Key da propria camera, sem sessao.
+        String apiKey = com.jayway.jsonpath.JsonPath.read(
+                mvc.perform(get("/api/v1/cameras/CAM-CFG1").session(session))
+                        .andReturn().getResponse().getContentAsString(), "$.id") != null
+                ? apiKeyDeCamera(session, "CAM-CFG1") : null;
+        mvc.perform(get("/api/v1/cameras/CAM-CFG1/zones/config").header("X-Cypher-Key", apiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    private String apiKeyDeCamera(MockHttpSession session, String codigo) throws Exception {
+        String corpo = mvc.perform(post("/api/v1/cameras/" + codigo + "/apikey/regenerate").session(session))
+                .andReturn().getResponse().getContentAsString();
+        return JsonPath.read(corpo, "$.apiKey");
+    }
+
     private MockHttpSession setupEmpresa(String empresaId, String empresaNome) throws Exception {
         MockHttpSession session = new MockHttpSession();
         mvc.perform(post("/api/v1/setup").session(session)
