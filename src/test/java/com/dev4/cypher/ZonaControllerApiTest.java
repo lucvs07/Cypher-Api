@@ -174,10 +174,7 @@ class ZonaControllerApiTest {
                 .andExpect(jsonPath("$[0].nome").value("Ativa"));
 
         // Acesso por X-Cypher-Key da propria camera, sem sessao.
-        String apiKey = com.jayway.jsonpath.JsonPath.read(
-                mvc.perform(get("/api/v1/cameras/CAM-CFG1").session(session))
-                        .andReturn().getResponse().getContentAsString(), "$.id") != null
-                ? apiKeyDeCamera(session, "CAM-CFG1") : null;
+        String apiKey = apiKeyDeCamera(session, "CAM-CFG1");
         mvc.perform(get("/api/v1/cameras/CAM-CFG1/zones/config").header("X-Cypher-Key", apiKey))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1));
