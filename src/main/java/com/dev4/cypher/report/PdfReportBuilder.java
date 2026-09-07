@@ -53,7 +53,7 @@ public final class PdfReportBuilder {
 
         html.append("<h2>Heatmap por estação</h2><table><tr><th>Estação</th><th>Setor</th><th>Incidentes</th></tr>");
         for (SummaryResponse.StationCell celula : s.heatmap()) {
-            html.append("<tr><td>").append(celula.nome()).append("</td><td>").append(celula.setor())
+            html.append("<tr><td>").append(escapeHtml(celula.nome())).append("</td><td>").append(escapeHtml(celula.setor()))
                 .append("</td><td>").append(celula.incidentes()).append("</td></tr>");
         }
         html.append("</table>");
@@ -76,11 +76,28 @@ public final class PdfReportBuilder {
             String conformidadeTexto = p.dadosSuficientes()
                     ? String.format("%.0f%%", p.conformidade() * 100)
                     : "dados insuficientes";
-            html.append("<tr><td>").append(p.nome()).append("</td><td>")
+            html.append("<tr><td>").append(escapeHtml(p.nome())).append("</td><td>")
                 .append(conformidadeTexto).append("</td><td>")
                 .append(String.format("%.0f%%", p.cobertura() * 100)).append("</td></tr>");
         }
         html.append("</table></body></html>");
         return html.toString();
+    }
+
+    /**
+     * Escapa texto de origem de usuário (nome de equipe/estação) antes de
+     * interpolar no HTML gerado — sem isso, um nome contendo {@code <}, {@code >}
+     * ou {@code &} corrompe silenciosamente a estrutura da tabela, produzindo um
+     * PDF com colunas quebradas em vez de uma exceção (achado de revisão, task 2).
+     */
+    private static String escapeHtml(String s) {
+        if (s == null) {
+            return "";
+        }
+        return s.replace("&", "&amp;")
+                 .replace("<", "&lt;")
+                 .replace(">", "&gt;")
+                 .replace("\"", "&quot;")
+                 .replace("'", "&#39;");
     }
 }

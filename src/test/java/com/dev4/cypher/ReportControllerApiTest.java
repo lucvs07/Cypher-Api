@@ -121,6 +121,33 @@ class ReportControllerApiTest {
         assertThat(new String(pdf, 0, 5, java.nio.charset.StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
     }
 
+    @Test
+    void pdfDeResumoEscapaCaracteresHtmlDeNomeDeEquipe() throws Exception {
+        // Achado de revisao (task 2, fix round 1): nome de equipe/estacao ia
+        // direto para a tabela HTML sem escaping -- "<", ">" e "&" corrompiam
+        // a estrutura da tabela silenciosamente (sem excecao). Confirma que o
+        // PDF continua valido e que o texto do nome sobrevive intacto (ou seja,
+        // foi escapado na fonte e decodificado de volta na extracao de texto).
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        criarEstacao(session, "EST-RPT4");
+        mvc.perform(post("/api/v1/teams").session(session)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EQ-RPT4\", \"nome\": \"Equipe <Testes> & Cia\", \"turno\": \"MANHA\", "
+                        + "\"estacaoIds\": [\"EST-RPT4\"], \"ativa\": true}"));
+
+        byte[] pdf = mvc.perform(get("/api/v1/reports/summary.pdf").session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+
+        assertThat(new String(pdf, 0, 5, java.nio.charset.StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+
+        try (org.apache.pdfbox.pdmodel.PDDocument documento =
+                     org.apache.pdfbox.pdmodel.PDDocument.load(pdf)) {
+            String texto = new org.apache.pdfbox.text.PDFTextStripper().getText(documento);
+            assertThat(texto).contains("Equipe <Testes> & Cia");
+        }
+    }
+
     private void criarEstacao(MockHttpSession session, String estacaoId) throws Exception {
         mvc.perform(post("/api/v1/stations").session(session)
                 .contentType(MediaType.APPLICATION_JSON)
