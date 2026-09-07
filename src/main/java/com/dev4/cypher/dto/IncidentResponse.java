@@ -34,6 +34,7 @@ public record IncidentResponse(
         Integer peakSeverity,
         ClosedReason closedReason,
         AlertaStatus status,
-        String empresaId
+        String empresaId,
+        String normaAplicavel
 ) {
 }

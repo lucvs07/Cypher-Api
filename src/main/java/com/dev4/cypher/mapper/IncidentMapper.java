@@ -6,6 +6,7 @@ import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.AlertaNivel;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.model.AlertaTipo;
+import com.dev4.cypher.model.NormaAplicavel;
 import com.dev4.cypher.security.TenantContext;
 import org.springframework.stereotype.Component;
 
@@ -71,7 +72,8 @@ public class IncidentMapper {
                 a.getSeveridadePico(),
                 a.getClosedReason(),
                 a.getStatus(),
-                a.getEmpresaId());
+                a.getEmpresaId(),
+                NormaAplicavel.de(a.getTipo()));
     }
 
     /** Texto legível exibido no painel; gerado no servidor, nunca enviado pelo cliente. */
