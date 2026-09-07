@@ -60,9 +60,15 @@ public class EquipeService {
             if (req.ativa() != null) {
                 equipe.setAtiva(req.ativa());
             }
-            equipe.setMetaConformidade(req.metaConformidade());
-            equipe.setMetaZeroSeveridade4Ativa(req.metaZeroSeveridade4Ativa());
-            equipe.setMetaTempoReconhecimentoSegundos(req.metaTempoReconhecimentoSegundos());
+            if (req.metaConformidade() != null) {
+                equipe.setMetaConformidade(req.metaConformidade());
+            }
+            if (req.metaZeroSeveridade4Ativa() != null) {
+                equipe.setMetaZeroSeveridade4Ativa(req.metaZeroSeveridade4Ativa());
+            }
+            if (req.metaTempoReconhecimentoSegundos() != null) {
+                equipe.setMetaTempoReconhecimentoSegundos(req.metaTempoReconhecimentoSegundos());
+            }
             return toResponse(equipes.saveAndFlush(equipe));
         });
     }

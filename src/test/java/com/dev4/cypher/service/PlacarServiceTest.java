@@ -65,6 +65,27 @@ class PlacarServiceTest {
     }
 
     @Test
+    void semanaAnteriorSemMonitoramentoDeixaDeltaNuloMasMantemConformidade() {
+        autenticarComo("demo");
+        estacoes.saveAndFlush(new com.dev4.cypher.model.Estacao("demo:EST-DL", "E", "s", true, "tokdl", "demo"));
+        cameras.saveAndFlush(new com.dev4.cypher.model.Camera("demo:CAM-DL", "C", "demo:EST-DL",
+                "http://dl/stream", null, true, "keydl", "demo"));
+        equipeService.criar(new TeamRequest("EQ-DL", "Equipe 1", Turno.MANHA, List.of("EST-DL"), true,
+                null, null, null));
+
+        // Monitoramento só na janela atual (hoje); nada na semana anterior.
+        registros.saveAndFlush(new MonitoramentoDiario(null, "demo:CAM-DL", "demo", LocalDate.now(), Turno.MANHA,
+                230400, OffsetDateTime.now()));
+
+        var eq = service.placar(OffsetDateTime.now().minusDays(7), OffsetDateTime.now())
+                .stream().filter(p -> p.equipeId().equals("EQ-DL")).findFirst().orElseThrow();
+
+        assertThat(eq.dadosSuficientes()).isTrue();
+        assertThat(eq.conformidade()).isNotNull();
+        assertThat(eq.deltaConformidadeSemana()).isNull();
+    }
+
+    @Test
     void equipeSemCameraAtivaAindaAparecePlacarComZeros() {
         autenticarComo("demo");
         estacoes.saveAndFlush(new com.dev4.cypher.model.Estacao("demo:EST-PL2", "E", "s", true, "tok2", "demo"));

@@ -48,7 +48,7 @@ public class PlacarService {
 
         List<PlacarEquipeResponse> resultado = new ArrayList<>();
         for (Equipe equipe : equipes.findByEmpresaIdAndAtivaTrue(empresaId)) {
-            List<String> cameraIds = camerasDaEquipe(equipe, empresaId);
+            List<String> cameraIds = camerasDaEquipe(equipe);
 
             Turno turno = equipe.getTurno();
             double cobertura = cobertura(empresaId, cameraIds, turno, since, until);
@@ -60,9 +60,16 @@ public class PlacarService {
             boolean metaConformidadeAtingida = false;
             if (dadosSuficientes) {
                 double atual = conformidade(empresaId, cameraIds, turno, since, until);
-                double anterior = conformidade(empresaId, cameraIds, turno, semanaAnteriorInicio, since);
                 conformidadeAtual = atual;
-                delta = atual - anterior;
+                // Delta week-over-week só é significativo quando a semana anterior
+                // também tem cobertura suficiente — senão `anterior` cairia para
+                // 0.0 (sem MonitoramentoDiario) e o ranking colapsaria para
+                // conformidade absoluta, violando "SEMPRE delta, NUNCA absoluta".
+                double coberturaAnterior = cobertura(empresaId, cameraIds, turno, semanaAnteriorInicio, since);
+                if (coberturaAnterior >= PISO_COBERTURA) {
+                    double anterior = conformidade(empresaId, cameraIds, turno, semanaAnteriorInicio, since);
+                    delta = atual - anterior;
+                }
                 metaConformidadeAtingida = equipe.getMetaConformidade() != null
                         && atual >= equipe.getMetaConformidade();
             }
@@ -91,7 +98,7 @@ public class PlacarService {
         return resultado;
     }
 
-    private List<String> camerasDaEquipe(Equipe equipe, String empresaId) {
+    private List<String> camerasDaEquipe(Equipe equipe) {
         List<String> resultado = new ArrayList<>();
         for (String estacaoId : equipe.getEstacaoIds()) {
             cameras.findByEstacaoIdAndAtivaTrue(estacaoId).forEach(c -> resultado.add(c.getId()));
@@ -128,7 +135,10 @@ public class PlacarService {
         if (cameraIds.isEmpty()) {
             return 0.0;
         }
-        long dias = Math.max(1, java.time.temporal.ChronoUnit.DAYS.between(inicio.toLocalDate(), fim.toLocalDate()));
+        // +1 porque `findBy...AndDiaBetween` é inclusivo nas duas pontas: uma
+        // janela de 7 dias corridos cobre 7 datas, não 6.
+        long dias = Math.max(1, java.time.temporal.ChronoUnit.DAYS.between(
+                inicio.toLocalDate(), fim.toLocalDate()) + 1);
         double segundosMonitorados = somaMonitorado(empresaId, cameraIds, turno, inicio, fim);
         // Normalizado pelo nº de câmeras e restrito ao turno da equipe: sem isso,
         // equipe de N câmeras 24h marcaria até N×300% (spec §3.2/§2.3).
@@ -159,7 +169,8 @@ public class PlacarService {
         if (cameraIds.isEmpty()) {
             return new int[]{0, 0};
         }
-        LocalDate limiteDia = hoje.minusDays(JANELA_SEQUENCIA_DIAS);
+        // -(N-1): a janela cobre exatamente N datas contando `hoje`.
+        LocalDate limiteDia = hoje.minusDays(JANELA_SEQUENCIA_DIAS - 1L);
         OffsetDateTime limiteInstante = limiteDia.atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
 
         Set<LocalDate> diasComQueda = new HashSet<>();
