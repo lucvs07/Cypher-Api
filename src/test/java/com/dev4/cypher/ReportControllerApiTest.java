@@ -55,6 +55,78 @@ class ReportControllerApiTest {
         assertThat(csv).contains("CAM-RPT1");
     }
 
+    @Test
+    void csvDePlacarTemCabecalhoEUmaLinhaPorEquipe() throws Exception {
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        criarEstacao(session, "EST-RPT1");
+        mvc.perform(post("/api/v1/teams").session(session)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EQ-RPT1\", \"nome\": \"Equipe Rpt\", \"turno\": \"MANHA\", "
+                        + "\"estacaoIds\": [\"EST-RPT1\"], \"ativa\": true}"));
+
+        String csv = mvc.perform(get("/api/v1/reports/placar.csv").session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(csv).startsWith(
+                "equipeId,nome,turno,dadosSuficientes,conformidade,cobertura,sequenciaAtual,melhorSequencia,deltaConformidadeSemana");
+        assertThat(csv).contains("Equipe Rpt");
+    }
+
+    @Test
+    void csvDePlacarNaoQuebraQuandoEquipeTemDadosInsuficientes() throws Exception {
+        // Equipe recem-criada, sem MonitoramentoDiario: cobertura 0 < piso 0,5 (E5 spec SS3.2)
+        // -> dadosSuficientes=false, conformidade/deltaConformidadeSemana nulos. So confirma
+        // que o CSV nao quebra e imprime a celula vazia, sem exigir dado real de heartbeat.
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        criarEstacao(session, "EST-RPT2");
+        mvc.perform(post("/api/v1/teams").session(session)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EQ-RPT2\", \"nome\": \"Equipe Sem Dado\", \"turno\": \"MANHA\", "
+                        + "\"estacaoIds\": [\"EST-RPT2\"], \"ativa\": true}"));
+
+        String csv = mvc.perform(get("/api/v1/reports/placar.csv").session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(csv).contains("EQ-RPT2,Equipe Sem Dado,MANHA,false,,");
+    }
+
+    @Test
+    void pdfDeResumoComecaComAAssinaturaDeBytesPdf() throws Exception {
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+
+        byte[] pdf = mvc.perform(get("/api/v1/reports/summary.pdf").session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+
+        assertThat(new String(pdf, 0, 5, java.nio.charset.StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+    }
+
+    @Test
+    void pdfDeResumoNaoQuebraComEquipeDeDadosInsuficientes() throws Exception {
+        // Regressao do achado da revisao de design (2026-09-08): conformidade() nula
+        // (equipe sem cobertura suficiente) desempacotava e quebrava a geracao do PDF.
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        criarEstacao(session, "EST-RPT3");
+        mvc.perform(post("/api/v1/teams").session(session)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EQ-RPT3\", \"nome\": \"Equipe Sem Dado Pdf\", \"turno\": \"MANHA\", "
+                        + "\"estacaoIds\": [\"EST-RPT3\"], \"ativa\": true}"));
+
+        byte[] pdf = mvc.perform(get("/api/v1/reports/summary.pdf").session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+
+        assertThat(new String(pdf, 0, 5, java.nio.charset.StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+    }
+
+    private void criarEstacao(MockHttpSession session, String estacaoId) throws Exception {
+        mvc.perform(post("/api/v1/stations").session(session)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"" + estacaoId + "\", \"nome\": \"E\", \"setor\": \"x\", \"ativa\": true}"));
+    }
+
     private String criarCameraEPegarApiKey(MockHttpSession session, String codigo, String estacaoId) throws Exception {
         mvc.perform(post("/api/v1/stations").session(session)
                 .contentType(MediaType.APPLICATION_JSON)
