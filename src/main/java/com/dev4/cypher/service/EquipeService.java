@@ -42,7 +42,8 @@ public class EquipeService {
         exigirEstacoesExistentes(estacaoIds);
         exigirSemConflito(estacaoIds, req.turno(), null);
         Equipe nova = new Equipe(id, req.nome(), req.turno(), estacaoIds,
-                req.ativa() == null || req.ativa(), TenantContext.currentEmpresaId());
+                req.ativa() == null || req.ativa(), TenantContext.currentEmpresaId(),
+                req.metaConformidade(), req.metaZeroSeveridade4Ativa(), req.metaTempoReconhecimentoSegundos());
         return toResponse(equipes.saveAndFlush(nova));
     }
 
@@ -59,6 +60,9 @@ public class EquipeService {
             if (req.ativa() != null) {
                 equipe.setAtiva(req.ativa());
             }
+            equipe.setMetaConformidade(req.metaConformidade());
+            equipe.setMetaZeroSeveridade4Ativa(req.metaZeroSeveridade4Ativa());
+            equipe.setMetaTempoReconhecimentoSegundos(req.metaTempoReconhecimentoSegundos());
             return toResponse(equipes.saveAndFlush(equipe));
         });
     }
@@ -114,6 +118,7 @@ public class EquipeService {
 
     private TeamResponse toResponse(Equipe e) {
         List<String> estacaoIds = e.getEstacaoIds().stream().map(TenantContext::codigo).toList();
-        return new TeamResponse(TenantContext.codigo(e.getId()), e.getNome(), e.getTurno(), estacaoIds, e.isAtiva());
+        return new TeamResponse(TenantContext.codigo(e.getId()), e.getNome(), e.getTurno(), estacaoIds, e.isAtiva(),
+                e.getMetaConformidade(), e.getMetaZeroSeveridade4Ativa(), e.getMetaTempoReconhecimentoSegundos());
     }
 }

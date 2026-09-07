@@ -55,4 +55,10 @@ public class Equipe {
 
     @Column(nullable = false, length = 30)
     private String empresaId;
+
+    private Double metaConformidade;
+
+    private Boolean metaZeroSeveridade4Ativa;
+
+    private Integer metaTempoReconhecimentoSegundos;
 }

@@ -16,5 +16,7 @@ public interface EquipeRepository extends JpaRepository<Equipe, String> {
 
     List<Equipe> findByEmpresaId(String empresaId);
 
+    List<Equipe> findByEmpresaIdAndAtivaTrue(String empresaId);
+
     List<Equipe> findByEmpresaIdAndTurno(String empresaId, Turno turno);
 }
