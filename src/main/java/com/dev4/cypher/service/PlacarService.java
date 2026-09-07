@@ -44,7 +44,12 @@ public class PlacarService {
     @Transactional(readOnly = true)
     public List<PlacarEquipeResponse> placar(OffsetDateTime since, OffsetDateTime until) {
         String empresaId = TenantContext.currentEmpresaId();
+        // Janela anterior em dias corridos e DISJUNTA da atual: termina no dia
+        // anterior a `since`, senão a data de `since` entraria nas duas pernas do
+        // delta (spec §3.2 — "SEMPRE delta"). Não é do mesmo tamanho que a atual
+        // (a atual permanece `[since .. until]` por instrução do plano).
         OffsetDateTime semanaAnteriorInicio = since.minusDays(7);
+        OffsetDateTime semanaAnteriorFim = since.minusDays(1);
 
         List<PlacarEquipeResponse> resultado = new ArrayList<>();
         for (Equipe equipe : equipes.findByEmpresaIdAndAtivaTrue(empresaId)) {
@@ -52,8 +57,13 @@ public class PlacarService {
 
             Turno turno = equipe.getTurno();
             double cobertura = cobertura(empresaId, cameraIds, turno, since, until);
-            int[] sequencias = sequencias(empresaId, cameraIds, until.toLocalDate());
             boolean dadosSuficientes = cobertura >= PISO_COBERTURA;
+            // Sequência só vale com monitoramento confiável — senão uma câmera
+            // tapada renderia 90 dias "sem queda" (mesma razão de anular
+            // conformidade/delta/meta abaixo do piso).
+            int[] sequencias = dadosSuficientes
+                    ? sequencias(empresaId, cameraIds, until.toLocalDate())
+                    : new int[]{0, 0};
 
             Double conformidadeAtual = null;
             Double delta = null;
@@ -65,9 +75,9 @@ public class PlacarService {
                 // também tem cobertura suficiente — senão `anterior` cairia para
                 // 0.0 (sem MonitoramentoDiario) e o ranking colapsaria para
                 // conformidade absoluta, violando "SEMPRE delta, NUNCA absoluta".
-                double coberturaAnterior = cobertura(empresaId, cameraIds, turno, semanaAnteriorInicio, since);
+                double coberturaAnterior = cobertura(empresaId, cameraIds, turno, semanaAnteriorInicio, semanaAnteriorFim);
                 if (coberturaAnterior >= PISO_COBERTURA) {
-                    double anterior = conformidade(empresaId, cameraIds, turno, semanaAnteriorInicio, since);
+                    double anterior = conformidade(empresaId, cameraIds, turno, semanaAnteriorInicio, semanaAnteriorFim);
                     delta = atual - anterior;
                 }
                 metaConformidadeAtingida = equipe.getMetaConformidade() != null
@@ -103,7 +113,9 @@ public class PlacarService {
         for (String estacaoId : equipe.getEstacaoIds()) {
             cameras.findByEstacaoIdAndAtivaTrue(estacaoId).forEach(c -> resultado.add(c.getId()));
         }
-        return resultado;
+        // `.distinct()`: estacaoIds repetidos na equipe não podem inflar
+        // `cameraIds.size()` e pela metade a cobertura.
+        return resultado.stream().distinct().toList();
     }
 
     /** Incidentes das câmeras da equipe cujo detectedAt cai na janela do turno da equipe (spec §3.2). */
@@ -112,7 +124,13 @@ public class PlacarService {
         if (cameraIds.isEmpty()) {
             return List.of();
         }
-        return alertas.findByEmpresaIdAndCameraIdInAndDataHoraBetween(empresaId, cameraIds, inicio, fim)
+        // Fixa os limites da consulta de alertas na mesma granularidade de data
+        // do denominador (`...DiaBetween`): o numerador cobre exatamente as
+        // mesmas datas corridas de `fim`/`inicio`, não o horário arbitrário de
+        // `OffsetDateTime.now()`. Fim exclusivo (início do dia seguinte).
+        OffsetDateTime inicioDia = inicio.toLocalDate().atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
+        OffsetDateTime fimDia = fim.toLocalDate().plusDays(1).atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
+        return alertas.findByEmpresaIdAndCameraIdInAndDataHoraBetween(empresaId, cameraIds, inicioDia, fimDia)
                 .stream().filter(a -> TurnoWindow.turnoDe(a.getDataHora()) == turno).toList();
     }
 

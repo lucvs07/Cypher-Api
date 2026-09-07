@@ -1,8 +1,5 @@
 package com.dev4.cypher;
 
-import com.dev4.cypher.model.MonitoramentoDiario;
-import com.dev4.cypher.model.Turno;
-import com.dev4.cypher.repository.MonitoramentoDiarioRepository;
 import com.dev4.cypher.security.AuthTestSupport;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
@@ -13,9 +10,6 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -26,9 +20,6 @@ class HeartbeatApiTest {
 
     @Autowired
     private MockMvc mvc;
-
-    @Autowired
-    private MonitoramentoDiarioRepository registros;
 
     @Test
     void heartbeatSemChaveDevolve401Ou403() throws Exception {
