@@ -81,6 +81,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/login-estacao")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/incidents").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/cameras/*/heartbeat").hasRole("PIPELINE")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/incidents/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").hasAnyRole("GESTOR", "OPERADOR")
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/me").hasAnyRole("GESTOR", "OPERADOR")

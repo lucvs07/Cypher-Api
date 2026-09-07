@@ -6,6 +6,7 @@ import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.AlertaNivel;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.model.AlertaTipo;
+import com.dev4.cypher.model.NormaAplicavel;
 import com.dev4.cypher.security.GestorAuthentication;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -107,5 +108,13 @@ class IncidentMapperTest {
                 .contains("zona");
         assertThat(mapper.descricaoDe(AlertaTipo.EPI_VIOLATION, "no_helmet", "CAM-02"))
                 .contains("EPI");
+    }
+
+    @Test
+    void mapeiaCadaTipoDeIncidenteParaANormaCorrespondente() {
+        assertThat(NormaAplicavel.de(AlertaTipo.FALL_RISK)).isEqualTo("NR-35");
+        assertThat(NormaAplicavel.de(AlertaTipo.ERGONOMIC_RISK)).isEqualTo("NR-17");
+        assertThat(NormaAplicavel.de(AlertaTipo.ZONE_VIOLATION)).isEqualTo("NR-12");
+        assertThat(NormaAplicavel.de(AlertaTipo.EPI_VIOLATION)).isEqualTo("NR-6");
     }
 }

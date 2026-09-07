@@ -80,7 +80,7 @@ class WebhookDispatcherTest {
                 "descricao", "fallen_sustained", "immediate_risk", 11, 4, null, "outside",
                 List.of(), List.of(), null,
                 OffsetDateTime.of(2026, 8, 10, 14, 31, 2, 0, ZoneOffset.UTC),
-                null, null, null, null, AlertaStatus.PENDENTE, empresaId);
+                null, null, null, null, AlertaStatus.PENDENTE, empresaId, null);
     }
 
     private IncidentResponse incidenteDeExemplo(String empresaId) {

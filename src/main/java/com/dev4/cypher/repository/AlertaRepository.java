@@ -2,6 +2,7 @@ package com.dev4.cypher.repository;
 
 import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.AlertaStatus;
+import com.dev4.cypher.model.AlertaTipo;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,6 +20,12 @@ public interface AlertaRepository extends JpaRepository<Alerta, Long> {
     Optional<Alerta> findByIncidentKey(String incidentKey);
 
     List<Alerta> findByEmpresaId(String empresaId);
+
+    List<Alerta> findByEmpresaIdAndCameraIdInAndDataHoraBetween(
+            String empresaId, List<String> cameraIds, OffsetDateTime inicio, OffsetDateTime fim);
+
+    List<Alerta> findByEmpresaIdAndTipoAndCameraIdInAndDataHoraAfter(
+            String empresaId, AlertaTipo tipo, List<String> cameraIds, OffsetDateTime limite);
 
     /** Busca por id restrita ao tenant atual — um id de outro tenant vem vazio (achado de segurança pós-Tarefa 5). */
     Optional<Alerta> findByIdAndEmpresaId(Long id, String empresaId);

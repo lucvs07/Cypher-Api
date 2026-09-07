@@ -19,6 +19,9 @@ public record TeamRequest(
         @NotBlank @Size(max = 120) String nome,
         @NotNull Turno turno,
         @NotEmpty List<@NotBlank String> estacaoIds,
-        Boolean ativa
+        Boolean ativa,
+        Double metaConformidade,
+        Boolean metaZeroSeveridade4Ativa,
+        Integer metaTempoReconhecimentoSegundos
 ) {
 }

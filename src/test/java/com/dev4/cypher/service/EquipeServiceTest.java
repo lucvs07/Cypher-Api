@@ -52,7 +52,7 @@ class EquipeServiceTest {
     }
 
     private TeamRequest equipeA() {
-        return new TeamRequest("EQ-01", "Equipe A", Turno.MANHA, List.of("EST-01"), null);
+        return new TeamRequest("EQ-01", "Equipe A", Turno.MANHA, List.of("EST-01"), null, null, null, null);
     }
 
     @Test
@@ -78,7 +78,7 @@ class EquipeServiceTest {
     @Test
     void recusaEstacaoInexistente() {
         assertThatThrownBy(() -> service.criar(
-                new TeamRequest("EQ-01", "Equipe A", Turno.MANHA, List.of("EST-99"), null)))
+                new TeamRequest("EQ-01", "Equipe A", Turno.MANHA, List.of("EST-99"), null, null, null, null)))
                 .isInstanceOf(CatalogValidationException.class)
                 .satisfies(e -> assertThat(((CatalogValidationException) e).getStatus())
                         .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
@@ -89,7 +89,7 @@ class EquipeServiceTest {
         service.criar(equipeA());
 
         assertThatThrownBy(() -> service.criar(
-                new TeamRequest("EQ-02", "Equipe B", Turno.MANHA, List.of("EST-01"), null)))
+                new TeamRequest("EQ-02", "Equipe B", Turno.MANHA, List.of("EST-01"), null, null, null, null)))
                 .isInstanceOf(CatalogValidationException.class)
                 .satisfies(e -> assertThat(((CatalogValidationException) e).getStatus())
                         .isEqualTo(HttpStatus.CONFLICT));
@@ -100,7 +100,7 @@ class EquipeServiceTest {
         service.criar(equipeA());
 
         TeamResponse tarde = service.criar(
-                new TeamRequest("EQ-02", "Equipe B", Turno.TARDE, List.of("EST-01"), null));
+                new TeamRequest("EQ-02", "Equipe B", Turno.TARDE, List.of("EST-01"), null, null, null, null));
 
         assertThat(tarde.turno()).isEqualTo(Turno.TARDE);
     }
@@ -110,7 +110,7 @@ class EquipeServiceTest {
         service.criar(equipeA());
 
         Optional<TeamResponse> editada = service.atualizar("EQ-01",
-                new TeamRequest("EQ-01", "Equipe A e B", Turno.MANHA, List.of("EST-01", "EST-02"), null));
+                new TeamRequest("EQ-01", "Equipe A e B", Turno.MANHA, List.of("EST-01", "EST-02"), null, null, null, null));
 
         assertThat(editada).isPresent();
         assertThat(editada.get().nome()).isEqualTo("Equipe A e B");
@@ -122,14 +122,14 @@ class EquipeServiceTest {
         service.criar(equipeA());
 
         assertThatThrownBy(() -> service.atualizar("EQ-01",
-                new TeamRequest("EQ-99", "Equipe A", Turno.MANHA, List.of("EST-01"), null)))
+                new TeamRequest("EQ-99", "Equipe A", Turno.MANHA, List.of("EST-01"), null, null, null, null)))
                 .isInstanceOf(CatalogValidationException.class);
     }
 
     @Test
     void editarInexistenteDevolveVazio() {
         assertThat(service.atualizar("EQ-99",
-                new TeamRequest("EQ-99", "X", Turno.MANHA, List.of("EST-01"), null))).isEmpty();
+                new TeamRequest("EQ-99", "X", Turno.MANHA, List.of("EST-01"), null, null, null, null))).isEmpty();
     }
 
     @Test
@@ -172,7 +172,7 @@ class EquipeServiceTest {
     @Test
     void listaTodasAsEquipes() {
         service.criar(equipeA());
-        service.criar(new TeamRequest("EQ-02", "Equipe B", Turno.TARDE, List.of("EST-02"), null));
+        service.criar(new TeamRequest("EQ-02", "Equipe B", Turno.TARDE, List.of("EST-02"), null, null, null, null));
 
         assertThat(service.listar()).extracting(TeamResponse::id)
                 .containsExactlyInAnyOrder("EQ-01", "EQ-02");
