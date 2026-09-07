@@ -8,6 +8,7 @@ import com.dev4.cypher.service.IncidentService;
 import com.dev4.cypher.service.PlacarService;
 import com.dev4.cypher.service.SummaryService;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 /**
  * Projeções em arquivo de dados já existentes (spec E6 §1) — GESTOR-only,
@@ -46,13 +48,14 @@ public class ReportController {
             @RequestParam(required = false) String camera,
             @RequestParam(required = false) Integer severityMin,
             @RequestParam(required = false) AlertaStatus status) throws IOException {
-        java.util.List<IncidentResponse> incidentes = incidentService
-                .search(since, camera, severityMin, status, null, Pageable.unpaged())
+        List<IncidentResponse> incidentes = incidentService
+                .search(since, camera, severityMin, status, null,
+                        Pageable.unpaged(Sort.by(Sort.Direction.DESC, "dataHora")))
                 .getContent();
         String csv = CsvReportBuilder.incidentesParaCsv(incidentes);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=incidentes.csv")
-                .contentType(MediaType.parseMediaType("text/csv"))
+                .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8"))
                 .body(csv.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -60,12 +63,11 @@ public class ReportController {
     public ResponseEntity<byte[]> placarCsv(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime since,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime until) throws IOException {
-        OffsetDateTime fim = until != null ? until : OffsetDateTime.now();
-        OffsetDateTime inicio = since != null ? since : fim.minusDays(7);
-        String csv = CsvReportBuilder.placarParaCsv(placarService.placar(inicio, fim));
+        OffsetDateTime[] janela = PlacarService.janelaPadrao(since, until);
+        String csv = CsvReportBuilder.placarParaCsv(placarService.placar(janela[0], janela[1]));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=placar.csv")
-                .contentType(MediaType.parseMediaType("text/csv"))
+                .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8"))
                 .body(csv.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -73,9 +75,8 @@ public class ReportController {
     public ResponseEntity<byte[]> summaryPdf(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime since,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime until) throws IOException {
-        OffsetDateTime fim = until != null ? until : OffsetDateTime.now();
-        OffsetDateTime inicio = since != null ? since : fim.minusDays(7);
-        byte[] pdf = PdfReportBuilder.resumoExecutivo(summaryService.build(), placarService.placar(inicio, fim));
+        OffsetDateTime[] janela = PlacarService.janelaPadrao(since, until);
+        byte[] pdf = PdfReportBuilder.resumoExecutivo(summaryService.build(), placarService.placar(janela[0], janela[1]));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=resumo.pdf")
                 .contentType(MediaType.APPLICATION_PDF)

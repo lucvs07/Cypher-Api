@@ -25,8 +25,7 @@ public class PlacarController {
     public List<PlacarEquipeResponse> placar(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime since,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime until) {
-        OffsetDateTime fim = until != null ? until : OffsetDateTime.now();
-        OffsetDateTime inicio = since != null ? since : fim.minusDays(7);
-        return service.placar(inicio, fim);
+        OffsetDateTime[] janela = PlacarService.janelaPadrao(since, until);
+        return service.placar(janela[0], janela[1]);
     }
 }

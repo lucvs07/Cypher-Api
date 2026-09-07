@@ -1,6 +1,9 @@
 package com.dev4.cypher;
 
 import com.dev4.cypher.security.AuthTestSupport;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -9,6 +12,9 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.io.StringReader;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -93,6 +99,95 @@ class ReportControllerApiTest {
     }
 
     @Test
+    void csvDePlacarEscapaNomeComVirgulaEAspas() throws Exception {
+        // Spec E6 §4 -- corretude do escaping do CSV. Em vez de checar a
+        // string bruta com aspas duplicadas manualmente, reparseia o CSV
+        // gerado com o mesmo parser (Apache Commons CSV) e compara a celula
+        // decodificada com o nome original.
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        criarEstacao(session, "EST-RPT5");
+        String nomeComVirgulaEAspas = "Equipe \"A\", Turno 1";
+        mvc.perform(post("/api/v1/teams").session(session)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EQ-RPT5\", \"nome\": " + jsonString(nomeComVirgulaEAspas) + ", \"turno\": \"MANHA\", "
+                        + "\"estacaoIds\": [\"EST-RPT5\"], \"ativa\": true}"));
+
+        String csv = mvc.perform(get("/api/v1/reports/placar.csv").session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        CSVRecord linha = linhaPorEquipeId(csv, "EQ-RPT5");
+        assertThat(linha.get("nome")).isEqualTo(nomeComVirgulaEAspas);
+    }
+
+    @Test
+    void csvDeIncidentesFiltraPorSeverityMinEOrdenaPorDataHoraDesc() throws Exception {
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        String apiKey = criarCameraEPegarApiKey(session, "CAM-RPT6", "EST-06");
+
+        // detectedAt distintos: alem de cobrir o filtro, permite provar que o
+        // CSV sai ordenado por dataHora DESC (Important #1) -- se o Sort nao
+        // for de fato aplicado por Pageable.unpaged(Sort), a ordem das duas
+        // linhas na leitura sem filtro fica arbitraria e o assertThat de
+        // ordem abaixo falha.
+        mvc.perform(post("/api/v1/incidents").header("X-Cypher-Key", apiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payloadDeIncidente("CAM-RPT6", "incident-rpt-6-baixa", 1,
+                                "2026-08-29T10:00:00Z")))
+                .andExpect(status().isCreated());
+        mvc.perform(post("/api/v1/incidents").header("X-Cypher-Key", apiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payloadDeIncidente("CAM-RPT6", "incident-rpt-6-alta", 4,
+                                "2026-08-30T10:00:00Z")))
+                .andExpect(status().isCreated());
+
+        // Controle: sem severityMin, as duas linhas aparecem -- prova que a
+        // ausencia da linha "baixa" no proximo passo vem do filtro, nao de a
+        // ingestao ter falhado silenciosamente.
+        String csvSemFiltro = mvc.perform(get("/api/v1/reports/incidents.csv")
+                        .param("camera", "CAM-RPT6").session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(csvSemFiltro).contains("incident-rpt-6-alta");
+        assertThat(csvSemFiltro).contains("incident-rpt-6-baixa");
+        // Mais recente (alta, 08-30) primeiro que o mais antigo (baixa, 08-29).
+        assertThat(csvSemFiltro.indexOf("incident-rpt-6-alta"))
+                .isLessThan(csvSemFiltro.indexOf("incident-rpt-6-baixa"));
+
+        String csvFiltrado = mvc.perform(get("/api/v1/reports/incidents.csv")
+                        .param("camera", "CAM-RPT6")
+                        .param("severityMin", "3")
+                        .session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(csvFiltrado).contains("incident-rpt-6-alta");
+        assertThat(csvFiltrado).doesNotContain("incident-rpt-6-baixa");
+    }
+
+    @Test
+    void csvDeIncidentesSanitizaReasonComPrefixoDeFormula() throws Exception {
+        // Achado de seguranca da revisao final: POST /api/v1/incidents e permitAll
+        // e nao sanitiza `reason`/`zoneName` -- um valor iniciado com "=" e
+        // interpretado como formula por Excel/LibreOffice ao abrir o CSV.
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        String apiKey = criarCameraEPegarApiKey(session, "CAM-RPT7", "EST-07");
+
+        mvc.perform(post("/api/v1/incidents").header("X-Cypher-Key", apiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payloadDeIncidenteComReason("CAM-RPT7", "incident-rpt-7",
+                        "=HYPERLINK(\"http://evil\",\"click\")")));
+
+        String csv = mvc.perform(get("/api/v1/reports/incidents.csv")
+                        .param("camera", "CAM-RPT7").session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        CSVRecord linha = linhaPorIncidentKey(csv, "incident-rpt-7");
+        assertThat(linha.get("reason")).isEqualTo("'=HYPERLINK(\"http://evil\",\"click\")");
+    }
+
+    @Test
     void pdfDeResumoComecaComAAssinaturaDeBytesPdf() throws Exception {
         MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
 
@@ -169,10 +264,45 @@ class ReportControllerApiTest {
     }
 
     private String payloadDeIncidente(String cameraId, String incidentKey) {
+        return payloadDeIncidente(cameraId, incidentKey, 3, "2026-08-29T10:00:00Z");
+    }
+
+    private String payloadDeIncidente(String cameraId, String incidentKey, int severity, String detectedAt) {
         return ("{\"incidentKey\": \"%s\", \"cameraId\": \"%s\", \"runId\": \"run-1\", \"trackId\": 1, "
-                + "\"type\": \"FALL_RISK\", \"severity\": 3, \"reason\": \"fallen_sustained\", "
+                + "\"type\": \"FALL_RISK\", \"severity\": %d, \"reason\": \"fallen_sustained\", "
+                + "\"postureCategory\": \"fallen\", \"rebaScore\": 11, \"actionLevel\": 3, "
+                + "\"zoneStatus\": \"outside\", \"detectedAt\": \"%s\"}")
+                .formatted(incidentKey, cameraId, severity, detectedAt);
+    }
+
+    private String payloadDeIncidenteComReason(String cameraId, String incidentKey, String reason) {
+        return ("{\"incidentKey\": \"%s\", \"cameraId\": \"%s\", \"runId\": \"run-1\", \"trackId\": 1, "
+                + "\"type\": \"FALL_RISK\", \"severity\": 3, \"reason\": %s, "
                 + "\"postureCategory\": \"fallen\", \"rebaScore\": 11, \"actionLevel\": 3, "
                 + "\"zoneStatus\": \"outside\", \"detectedAt\": \"2026-08-29T10:00:00Z\"}")
-                .formatted(incidentKey, cameraId);
+                .formatted(incidentKey, cameraId, jsonString(reason));
+    }
+
+    /** Escapa uma string Java como literal JSON, para montar payloads de teste com aspas/virgulas no valor. */
+    private String jsonString(String valor) {
+        return "\"" + valor.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+    }
+
+    private CSVRecord linhaPorEquipeId(String csv, String equipeId) throws Exception {
+        try (CSVParser parser = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true)
+                .build().parse(new StringReader(csv))) {
+            List<CSVRecord> registros = parser.getRecords();
+            return registros.stream().filter(r -> equipeId.equals(r.get("equipeId"))).findFirst()
+                    .orElseThrow(() -> new AssertionError("linha nao encontrada para equipeId=" + equipeId));
+        }
+    }
+
+    private CSVRecord linhaPorIncidentKey(String csv, String incidentKey) throws Exception {
+        try (CSVParser parser = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true)
+                .build().parse(new StringReader(csv))) {
+            List<CSVRecord> registros = parser.getRecords();
+            return registros.stream().filter(r -> incidentKey.equals(r.get("incidentKey"))).findFirst()
+                    .orElseThrow(() -> new AssertionError("linha nao encontrada para incidentKey=" + incidentKey));
+        }
     }
 }
