@@ -41,6 +41,22 @@ public class PlacarService {
         this.monitoramentos = monitoramentos;
     }
 
+    /**
+     * Janela default do placar (spec §3.2): {@code until} cai para
+     * {@code now()} quando ausente, e {@code since} cai para
+     * {@code until - 7 dias} quando ausente. Extraído aqui para evitar
+     * triplicação entre {@code PlacarController} e os dois endpoints de
+     * {@code ReportController} que reaproveitam esta mesma query (achado da
+     * revisão final de branch).
+     *
+     * @return {@code {inicio, fim}} já com os defaults aplicados.
+     */
+    public static OffsetDateTime[] janelaPadrao(OffsetDateTime since, OffsetDateTime until) {
+        OffsetDateTime fim = until != null ? until : OffsetDateTime.now();
+        OffsetDateTime inicio = since != null ? since : fim.minusDays(7);
+        return new OffsetDateTime[]{inicio, fim};
+    }
+
     @Transactional(readOnly = true)
     public List<PlacarEquipeResponse> placar(OffsetDateTime since, OffsetDateTime until) {
         String empresaId = TenantContext.currentEmpresaId();
