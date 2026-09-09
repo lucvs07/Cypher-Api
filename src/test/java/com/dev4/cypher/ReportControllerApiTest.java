@@ -271,9 +271,30 @@ class ReportControllerApiTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsByteArray();
 
-        // Com o setor errado, a contagem de EST-PDFA no heatmap do PDF zera --
-        // os dois documentos deixam de ser identicos.
-        assertThat(pdfDoSetorCerto).isNotEqualTo(pdfDeOutroSetor);
+        // Comparar bytes crus e vazio: openhtmltopdf embute /CreationDate e /ID
+        // novos a cada geracao, entao dois PDFs SEMPRE diferem em bytes,
+        // independente do filtro de setor ter sido aplicado (o revisor confirmou
+        // isso experimentalmente e tambem que o teste antigo passava mesmo com o
+        // fix de setor revertido).
+        //
+        // Em vez disso, extrai o texto de cada PDF e olha a linha da estacao no
+        // heatmap. SummaryService.build() lista TODAS as estacoes no heatmap
+        // mesmo com filtro de setor -- so zera a contagem de incidentes das que
+        // nao batem o setor ("celula ausente" != "celula zerada", ver comentario
+        // em SummaryService) -- entao o que muda entre os dois PDFs nao e a
+        // presenca da linha "Estacao Pdf A", e sim a contagem ao final dela:
+        // 1 incidente quando o setor filtrado e o dela, 0 quando nao e.
+        String textoSetorCerto;
+        try (org.apache.pdfbox.pdmodel.PDDocument documento = org.apache.pdfbox.pdmodel.PDDocument.load(pdfDoSetorCerto)) {
+            textoSetorCerto = new org.apache.pdfbox.text.PDFTextStripper().getText(documento);
+        }
+        String textoOutroSetor;
+        try (org.apache.pdfbox.pdmodel.PDDocument documento = org.apache.pdfbox.pdmodel.PDDocument.load(pdfDeOutroSetor)) {
+            textoOutroSetor = new org.apache.pdfbox.text.PDFTextStripper().getText(documento);
+        }
+
+        assertThat(textoSetorCerto).contains("Estacao Pdf A pdf-setor-a 1");
+        assertThat(textoOutroSetor).contains("Estacao Pdf A pdf-setor-a 0");
     }
 
     @Test
