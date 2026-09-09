@@ -33,6 +33,13 @@ public class SummaryService {
 
     private static final Set<String> TURNOS_VALIDOS = Set.of("A", "B", "N");
 
+    private static final Map<String, String> EPI_PARA_VIOLACAO = Map.of(
+            "capacete", "no_helmet",
+            "oculos",   "no_goggle",
+            "luvas",    "no_gloves",
+            "botas",    "no_boots"
+    );
+
     private final AlertaRepository repository;
     private final CatalogService catalogo;
 
@@ -83,6 +90,15 @@ public class SummaryService {
                     "turno invalido: " + turno + " (esperado A, B ou N)");
         }
 
+        String violacaoAlvo = null;
+        if (epi != null) {
+            violacaoAlvo = EPI_PARA_VIOLACAO.get(epi);
+            if (violacaoAlvo == null) {
+                throw new CatalogValidationException(HttpStatus.BAD_REQUEST,
+                        "epi invalido: " + epi + " (esperado um de " + EPI_PARA_VIOLACAO.keySet() + ")");
+            }
+        }
+
         Map<String, String> estacaoPorCamera = new HashMap<>();
         Map<String, StationResponse> estacoes = new HashMap<>();
         for (StationResponse estacao : catalogo.stations()) {
@@ -123,6 +139,9 @@ public class SummaryService {
                 continue;
             }
             if (!noTurno(a.getDataHora(), turno, zona)) {
+                continue;
+            }
+            if (violacaoAlvo != null && !a.getEpiMissing().contains(violacaoAlvo)) {
                 continue;
             }
             String estacaoId = estacaoPorCamera.get(TenantContext.codigo(a.getCameraId()));

@@ -289,4 +289,23 @@ class SummaryApiTest {
                 .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-01')].incidentes").value(0))
                 .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-02')].incidentes").value(0));
     }
+
+    @Test
+    void heatmapFiltraPorEpi() throws Exception {
+        Alerta semCapacete = incidente("epi-1", "CAM-01", 2, OffsetDateTime.now());
+        semCapacete.setEpiMissing(List.of("no_helmet"));
+        repository.saveAndFlush(semCapacete);
+
+        mvc.perform(get("/api/v1/summary").param("epi", "capacete").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-01')].incidentes").value(1))
+                .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-02')].incidentes").value(0));
+    }
+
+    @Test
+    void epiForaDoMapaDevolve400() throws Exception {
+        mvc.perform(get("/api/v1/summary").param("epi", "colete").session(gestor))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").exists());
+    }
 }
