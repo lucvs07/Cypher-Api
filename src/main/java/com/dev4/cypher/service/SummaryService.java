@@ -172,7 +172,38 @@ public class SummaryService {
                 .filter(a -> a.getStatus() == AlertaStatus.PENDENTE)
                 .count();
 
+        List<SummaryResponse.TemporalCell> distribuicaoTemporal = null;
+        if (detalhado) {
+            Map<String, Integer> porBucket = new HashMap<>();
+            for (Alerta a : doTenant) {
+                if (a.getDataHora().isBefore(desde) || a.getDataHora().isAfter(ate)) {
+                    continue;
+                }
+                if (!noTurno(a.getDataHora(), turno, zona)) {
+                    continue;
+                }
+                if (violacaoAlvo != null && !a.getEpiMissing().contains(violacaoAlvo)) {
+                    continue;
+                }
+                String estacaoId = estacaoPorCamera.get(TenantContext.codigo(a.getCameraId()));
+                if (estacaoId == null || (setor != null && !setor.equals(estacoes.get(estacaoId).setor()))) {
+                    continue;
+                }
+                var zoned = a.getDataHora().atZoneSameInstant(zona);
+                int diaSemana = zoned.getDayOfWeek().getValue() - 1; // 0=Seg .. 6=Dom
+                int faixa2h = zoned.getHour() / 2;
+                porBucket.merge(diaSemana + ":" + faixa2h, 1, Integer::sum);
+            }
+            distribuicaoTemporal = new ArrayList<>();
+            for (int dia = 0; dia < 7; dia++) {
+                for (int faixa = 0; faixa < 12; faixa++) {
+                    int contagem = porBucket.getOrDefault(dia + ":" + faixa, 0);
+                    distribuicaoTemporal.add(new SummaryResponse.TemporalCell(dia, faixa, contagem));
+                }
+            }
+        }
+
         return new SummaryResponse(incidentesHoje, incidentesOntem, criticosHoje,
-                pendentes, heatmap, serie, null, null);
+                pendentes, heatmap, serie, distribuicaoTemporal, null);
     }
 }

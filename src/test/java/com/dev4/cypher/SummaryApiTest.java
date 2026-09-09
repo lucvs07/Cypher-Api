@@ -308,4 +308,29 @@ class SummaryApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.erro").exists());
     }
+
+    @Test
+    void distribuicaoTemporalAgregaPorDiaDaSemanaEFaixaDe2h() throws Exception {
+        // Quarta-feira (diaSemana=2, 0=Seg) as 23h -> faixa2h = 23/2 = 11.
+        java.time.LocalDate quartaConhecida = java.time.LocalDate.of(2026, 9, 9); // e uma quarta
+        assert quartaConhecida.getDayOfWeek() == java.time.DayOfWeek.WEDNESDAY;
+        OffsetDateTime as23h = quartaConhecida.atTime(23, 0)
+                .atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime();
+        repository.saveAndFlush(incidente("temporal-1", "CAM-01", 2, as23h));
+
+        mvc.perform(get("/api/v1/summary")
+                        .param("since", quartaConhecida.atStartOfDay().atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime().toString())
+                        .param("until", quartaConhecida.plusDays(1).atStartOfDay().atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime().toString())
+                        .param("detalhado", "true")
+                        .session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.distribuicaoTemporal[?(@.diaSemana==2 && @.faixa2h==11)].incidentes").value(1));
+    }
+
+    @Test
+    void semDetalhadoDistribuicaoTemporalVemNula() throws Exception {
+        mvc.perform(get("/api/v1/summary").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.distribuicaoTemporal").doesNotExist());
+    }
 }
