@@ -333,4 +333,30 @@ class SummaryApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.distribuicaoTemporal").doesNotExist());
     }
+
+    @Test
+    void historicoAnualTemUmaLinhaPorDiaDoAnoCorrenteEIgnoraSinceUntil() throws Exception {
+        int anoCorrente = java.time.LocalDate.now().getYear();
+        java.time.LocalDate diaNoAno = java.time.LocalDate.of(anoCorrente, 3, 15);
+        repository.saveAndFlush(incidente("anual-1", "CAM-01", 2,
+                diaNoAno.atTime(10, 0).atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime()));
+
+        // since/until aqui apontam pra HOJE -- historicoAnual deve ignorar e
+        // trazer o ano inteiro (incluindo 15/mar, fora dessa janela).
+        mvc.perform(get("/api/v1/summary")
+                        .param("since", OffsetDateTime.now().toString())
+                        .param("detalhado", "true")
+                        .session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.historicoAnual.length()")
+                        .value(anoCorrente % 4 == 0 && (anoCorrente % 100 != 0 || anoCorrente % 400 == 0) ? 366 : 365))
+                .andExpect(jsonPath("$.historicoAnual[?(@.dia=='" + diaNoAno + "')].incidentes").value(1));
+    }
+
+    @Test
+    void semDetalhadoHistoricoAnualVemNulo() throws Exception {
+        mvc.perform(get("/api/v1/summary").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.historicoAnual").doesNotExist());
+    }
 }

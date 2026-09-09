@@ -203,7 +203,35 @@ public class SummaryService {
             }
         }
 
+        List<SummaryResponse.DayCount> historicoAnual = null;
+        if (detalhado) {
+            LocalDate anoInicio = LocalDate.of(hoje.getYear(), 1, 1);
+            LocalDate anoFim = LocalDate.of(hoje.getYear(), 12, 31);
+            Map<LocalDate, Integer> porDiaDoAno = new HashMap<>();
+            for (Alerta a : doTenant) {
+                LocalDate dia = a.getDataHora().atZoneSameInstant(zona).toLocalDate();
+                if (dia.isBefore(anoInicio) || dia.isAfter(anoFim)) {
+                    continue;
+                }
+                if (!noTurno(a.getDataHora(), turno, zona)) {
+                    continue;
+                }
+                if (violacaoAlvo != null && !a.getEpiMissing().contains(violacaoAlvo)) {
+                    continue;
+                }
+                String estacaoId = estacaoPorCamera.get(TenantContext.codigo(a.getCameraId()));
+                if (estacaoId == null || (setor != null && !setor.equals(estacoes.get(estacaoId).setor()))) {
+                    continue;
+                }
+                porDiaDoAno.merge(dia, 1, Integer::sum);
+            }
+            historicoAnual = new ArrayList<>();
+            for (LocalDate dia = anoInicio; !dia.isAfter(anoFim); dia = dia.plusDays(1)) {
+                historicoAnual.add(new SummaryResponse.DayCount(dia, porDiaDoAno.getOrDefault(dia, 0)));
+            }
+        }
+
         return new SummaryResponse(incidentesHoje, incidentesOntem, criticosHoje,
-                pendentes, heatmap, serie, distribuicaoTemporal, null);
+                pendentes, heatmap, serie, distribuicaoTemporal, historicoAnual);
     }
 }
