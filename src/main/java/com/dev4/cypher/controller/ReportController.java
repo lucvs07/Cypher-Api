@@ -74,9 +74,14 @@ public class ReportController {
     @GetMapping("/summary.pdf")
     public ResponseEntity<byte[]> summaryPdf(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime since,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime until) throws IOException {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime until,
+            @RequestParam(required = false) String turno,
+            @RequestParam(required = false) String setor,
+            @RequestParam(required = false) String epi) throws IOException {
         OffsetDateTime[] janela = PlacarService.janelaPadrao(since, until);
-        byte[] pdf = PdfReportBuilder.resumoExecutivo(summaryService.build(), placarService.placar(janela[0], janela[1]));
+        byte[] pdf = PdfReportBuilder.resumoExecutivo(
+                summaryService.build(janela[0], janela[1], turno, setor, epi, false),
+                placarService.placar(janela[0], janela[1]));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=resumo.pdf")
                 .contentType(MediaType.APPLICATION_PDF)

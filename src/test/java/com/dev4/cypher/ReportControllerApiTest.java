@@ -19,6 +19,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -241,6 +242,56 @@ class ReportControllerApiTest {
             String texto = new org.apache.pdfbox.text.PDFTextStripper().getText(documento);
             assertThat(texto).contains("Equipe <Testes> & Cia");
         }
+    }
+
+    @Test
+    void pdfDeResumoRepassaSetorAoHeatmap() throws Exception {
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        mvc.perform(post("/api/v1/stations").session(session)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EST-PDFA\", \"nome\": \"Estacao Pdf A\", \"setor\": \"pdf-setor-a\", \"ativa\": true}"));
+        String apiKey = criarCameraEPegarApiKey(session, "CAM-PDFA", "EST-PDFA");
+        mvc.perform(post("/api/v1/incidents").header("X-Cypher-Key", apiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payloadDeIncidente("CAM-PDFA", "incident-pdf-a")));
+
+        // payloadDeIncidente grava detectedAt fixo em 2026-08-29T10:00:00Z (ver
+        // helper no fim do arquivo) -- since aqui ancora nesse dia pra nao
+        // depender de o teste rodar exatamente "hoje".
+        byte[] pdfDoSetorCerto = mvc.perform(get("/api/v1/reports/summary.pdf")
+                        .param("since", "2026-08-29T00:00:00Z")
+                        .param("setor", "pdf-setor-a")
+                        .session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+        byte[] pdfDeOutroSetor = mvc.perform(get("/api/v1/reports/summary.pdf")
+                        .param("since", "2026-08-29T00:00:00Z")
+                        .param("setor", "pdf-setor-que-nao-existe")
+                        .session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+
+        // Com o setor errado, a contagem de EST-PDFA no heatmap do PDF zera --
+        // os dois documentos deixam de ser identicos.
+        assertThat(pdfDoSetorCerto).isNotEqualTo(pdfDeOutroSetor);
+    }
+
+    @Test
+    void pdfDeResumoDevolve400ParaTurnoInvalido() throws Exception {
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+
+        mvc.perform(get("/api/v1/reports/summary.pdf").param("turno", "X").session(session))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").exists());
+    }
+
+    @Test
+    void pdfDeResumoDevolve400ParaEpiInvalido() throws Exception {
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+
+        mvc.perform(get("/api/v1/reports/summary.pdf").param("epi", "colete").session(session))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").exists());
     }
 
     private void criarEstacao(MockHttpSession session, String estacaoId) throws Exception {
