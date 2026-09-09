@@ -1,5 +1,6 @@
 package com.dev4.cypher.service;
 
+import com.dev4.cypher.catalog.CatalogValidationException;
 import com.dev4.cypher.dto.CameraResponse;
 import com.dev4.cypher.dto.StationResponse;
 import com.dev4.cypher.dto.SummaryResponse;
@@ -7,6 +8,7 @@ import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.repository.AlertaRepository;
 import com.dev4.cypher.security.TenantContext;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Agregações do dashboard.
@@ -28,12 +31,28 @@ import java.util.Map;
 @Service
 public class SummaryService {
 
+    private static final Set<String> TURNOS_VALIDOS = Set.of("A", "B", "N");
+
     private final AlertaRepository repository;
     private final CatalogService catalogo;
 
     public SummaryService(AlertaRepository repository, CatalogService catalogo) {
         this.repository = repository;
         this.catalogo = catalogo;
+    }
+
+    private static boolean noTurno(OffsetDateTime dataHora, String turno, ZoneId zona) {
+        if (turno == null) {
+            return true;
+        }
+        int hora = dataHora.atZoneSameInstant(zona).getHour();
+        return switch (turno) {
+            case "A" -> hora >= 6 && hora < 14;
+            case "B" -> hora >= 14 && hora < 22;
+            case "N" -> hora >= 22 || hora < 6;
+            default -> throw new CatalogValidationException(HttpStatus.BAD_REQUEST,
+                    "turno invalido: " + turno + " (esperado A, B ou N)");
+        };
     }
 
     @Transactional(readOnly = true)
@@ -58,6 +77,11 @@ public class SummaryService {
         List<Alerta> janela = doTenant.stream()
                 .filter(a -> !a.getDataHora().isBefore(inicioDaJanela))
                 .toList();
+
+        if (turno != null && !TURNOS_VALIDOS.contains(turno)) {
+            throw new CatalogValidationException(HttpStatus.BAD_REQUEST,
+                    "turno invalido: " + turno + " (esperado A, B ou N)");
+        }
 
         Map<String, String> estacaoPorCamera = new HashMap<>();
         Map<String, StationResponse> estacoes = new HashMap<>();
@@ -98,10 +122,17 @@ public class SummaryService {
             if (a.getDataHora().isBefore(desde) || a.getDataHora().isAfter(ate)) {
                 continue;
             }
-            String estacaoId = estacaoPorCamera.get(TenantContext.codigo(a.getCameraId()));
-            if (estacaoId != null) {
-                porEstacaoNaJanela.merge(estacaoId, 1, Integer::sum);
+            if (!noTurno(a.getDataHora(), turno, zona)) {
+                continue;
             }
+            String estacaoId = estacaoPorCamera.get(TenantContext.codigo(a.getCameraId()));
+            if (estacaoId == null) {
+                continue;
+            }
+            if (setor != null && !setor.equals(estacoes.get(estacaoId).setor())) {
+                continue;
+            }
+            porEstacaoNaJanela.merge(estacaoId, 1, Integer::sum);
         }
 
         // Estações sem incidente aparecem com zero: uma célula ausente e uma

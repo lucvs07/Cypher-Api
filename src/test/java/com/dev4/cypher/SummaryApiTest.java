@@ -241,4 +241,52 @@ class SummaryApiTest {
                 .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-01')].incidentes").value(2))
                 .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-02')].incidentes").value(1));
     }
+
+    @Test
+    void heatmapFiltraPorTurno() throws Exception {
+        // O brief original gravava um unico incidente fixo (23h) e confiava
+        // no default since/until (ate = agora) -- so passa se o teste rodar
+        // entre 23h e meia-noite, porque "ate" corta qualquer coisa no
+        // futuro. Aqui fixamos since/until para cobrir o dia inteiro e
+        // usamos dois incidentes (turno N e turno A) para nao depender do
+        // relogio real nem em qual hora o teste roda.
+        repository.deleteAll();
+        java.time.LocalDate hoje = java.time.LocalDate.now();
+        java.time.ZoneId zona = java.time.ZoneId.systemDefault();
+        repository.save(incidente("turno-n", "CAM-01", 3,
+                hoje.atTime(3, 0).atZone(zona).toOffsetDateTime()));
+        repository.saveAndFlush(incidente("turno-a", "CAM-01", 3,
+                hoje.atTime(9, 0).atZone(zona).toOffsetDateTime()));
+
+        mvc.perform(get("/api/v1/summary")
+                        .param("since", hoje.atStartOfDay(zona).toOffsetDateTime().toString())
+                        .param("until", hoje.atTime(23, 59, 59).atZone(zona).toOffsetDateTime().toString())
+                        .param("turno", "N")
+                        .session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-01')].incidentes").value(1));
+    }
+
+    @Test
+    void turnoInvalidoDevolve400() throws Exception {
+        mvc.perform(get("/api/v1/summary").param("turno", "X").session(gestor))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").exists());
+    }
+
+    @Test
+    void heatmapFiltraPorSetor() throws Exception {
+        mvc.perform(get("/api/v1/summary").param("setor", "montagem").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-01')].incidentes").value(2))
+                .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-02')].incidentes").value(0));
+    }
+
+    @Test
+    void heatmapComSetorInexistenteFicaTodoZerado() throws Exception {
+        mvc.perform(get("/api/v1/summary").param("setor", "setor-que-nao-existe").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-01')].incidentes").value(0))
+                .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-02')].incidentes").value(0));
+    }
 }
