@@ -217,4 +217,28 @@ class SummaryApiTest {
                 .andExpect(jsonPath("$.heatmap[0].estacaoId").value("EST-01"))
                 .andExpect(jsonPath("$.heatmap[0].incidentes").value(1));
     }
+
+    @Test
+    void heatmapRespeitaSinceEUntilQuandoInformados() throws Exception {
+        // semear() já grava s1/s2/s3 "hoje" (CAM-01 x2, CAM-02 x1) e s4 "ontem" (CAM-01).
+        // Pedindo desde ontem 00h ate agora, o heatmap de EST-01 passa a incluir s4.
+        OffsetDateTime desde = OffsetDateTime.now().minusDays(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+
+        mvc.perform(get("/api/v1/summary")
+                        .param("since", desde.toString())
+                        .session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-01')].incidentes").value(3))
+                .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-02')].incidentes").value(1));
+    }
+
+    @Test
+    void semSinceNemUntilHeatmapContinuaSendoSoHoje() throws Exception {
+        // Mesmo teste de sempre (heatmapAgregaPorEstacaoIncluindoAsSemIncidente),
+        // reafirmado apos a Task 1 para provar que nada mudou por default.
+        mvc.perform(get("/api/v1/summary").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-01')].incidentes").value(2))
+                .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-02')].incidentes").value(1));
+    }
 }

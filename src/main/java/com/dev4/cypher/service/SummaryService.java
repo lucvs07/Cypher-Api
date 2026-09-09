@@ -38,6 +38,12 @@ public class SummaryService {
 
     @Transactional(readOnly = true)
     public SummaryResponse build() {
+        return build(null, null, null, null, null, false);
+    }
+
+    @Transactional(readOnly = true)
+    public SummaryResponse build(OffsetDateTime since, OffsetDateTime until,
+                                  String turno, String setor, String epi, boolean detalhado) {
         ZoneId zona = ZoneId.systemDefault();
         LocalDate hoje = LocalDate.now(zona);
         LocalDate ontem = hoje.minusDays(1);
@@ -65,7 +71,6 @@ public class SummaryService {
         int incidentesHoje = 0;
         int incidentesOntem = 0;
         int criticosHoje = 0;
-        Map<String, Integer> porEstacaoHoje = new HashMap<>();
         Map<LocalDate, Integer> porDia = new HashMap<>();
 
         for (Alerta a : janela) {
@@ -77,14 +82,25 @@ public class SummaryService {
                 if (a.getSeveridade() >= 3) {
                     criticosHoje++;
                 }
-                // a.getCameraId() é prefixado pelo tenant desde a Tarefa 5;
-                // estacaoPorCamera é chaveado pelo código puro (CameraResponse.id()).
-                String estacaoId = estacaoPorCamera.get(TenantContext.codigo(a.getCameraId()));
-                if (estacaoId != null) {
-                    porEstacaoHoje.merge(estacaoId, 1, Integer::sum);
-                }
             } else if (dia.equals(ontem)) {
                 incidentesOntem++;
+            }
+        }
+
+        // Janela do heatmap espacial (e, na Task 4, de distribuicaoTemporal):
+        // "hoje" continua sendo o default quando since/until nao vem, mas
+        // agora e um parametro, nao mais hardcoded (spec SS1.1).
+        OffsetDateTime desde = since != null ? since : hoje.atStartOfDay(zona).toOffsetDateTime();
+        OffsetDateTime ate = until != null ? until : OffsetDateTime.now(zona);
+
+        Map<String, Integer> porEstacaoNaJanela = new HashMap<>();
+        for (Alerta a : doTenant) {
+            if (a.getDataHora().isBefore(desde) || a.getDataHora().isAfter(ate)) {
+                continue;
+            }
+            String estacaoId = estacaoPorCamera.get(TenantContext.codigo(a.getCameraId()));
+            if (estacaoId != null) {
+                porEstacaoNaJanela.merge(estacaoId, 1, Integer::sum);
             }
         }
 
@@ -92,7 +108,7 @@ public class SummaryService {
         // célula zerada significam coisas diferentes no heatmap.
         List<SummaryResponse.StationCell> heatmap = estacoes.values().stream()
                 .map(e -> new SummaryResponse.StationCell(e.id(), e.nome(), e.setor(),
-                        porEstacaoHoje.getOrDefault(e.id(), 0)))
+                        porEstacaoNaJanela.getOrDefault(e.id(), 0)))
                 .sorted((a, b) -> a.estacaoId().compareTo(b.estacaoId()))
                 .toList();
 
@@ -107,6 +123,6 @@ public class SummaryService {
                 .count();
 
         return new SummaryResponse(incidentesHoje, incidentesOntem, criticosHoje,
-                pendentes, heatmap, serie);
+                pendentes, heatmap, serie, null, null);
     }
 }

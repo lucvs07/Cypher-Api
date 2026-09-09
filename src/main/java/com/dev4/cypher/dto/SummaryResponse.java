@@ -10,13 +10,19 @@ public record SummaryResponse(
         int criticosHoje,
         int pendentes,
         List<StationCell> heatmap,
-        List<DayCount> ultimosSeteDias
+        List<DayCount> ultimosSeteDias,
+        List<TemporalCell> distribuicaoTemporal,
+        List<DayCount> historicoAnual
 ) {
 
-    /** Célula do heatmap: uma estação e sua contagem de hoje. */
+    /** Célula do heatmap: uma estação e sua contagem na janela filtrada. */
     public record StationCell(String estacaoId, String nome, String setor, int incidentes) {
     }
 
     public record DayCount(LocalDate dia, int incidentes) {
+    }
+
+    /** Célula do painel Temporal: dia da semana (0=Seg..6=Dom) x faixa de 2h (0..11). */
+    public record TemporalCell(int diaSemana, int faixa2h, int incidentes) {
     }
 }
