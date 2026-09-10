@@ -6,6 +6,7 @@ import com.dev4.cypher.model.AlertaLeitura;
 import com.dev4.cypher.repository.AlertaLeituraRepository;
 import com.dev4.cypher.repository.AlertaRepository;
 import com.dev4.cypher.security.TenantContext;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -53,6 +54,13 @@ public class NotificacaoService {
      * Cria a linha de leitura para cada id que pertence à empresa e ainda
      * não foi lido; ids de outra empresa ou já lidos são ignorados em
      * silêncio — idempotente por natureza (spec central-notificacoes §3/§5).
+     * A constraint única em {@code (empresaId, usuario, alertaId)} é o
+     * backstop contra a corrida de duas requisições concorrentes (ex.:
+     * duplo clique, duas abas abertas) marcando o mesmo alerta como lido
+     * entre o {@code existsBy} e o {@code save} abaixo — se ela disparar,
+     * tratamos como o mesmo no-op do caso "já lido", em vez de deixar o
+     * 500 vazar (não há {@code @RestControllerAdvice} genérico neste
+     * projeto para traduzi-lo).
      */
     @Transactional
     public void marcarLidas(String empresaId, String usuario, List<Long> alertaIds) {
@@ -69,7 +77,12 @@ public class NotificacaoService {
             leitura.setUsuario(usuario);
             leitura.setAlertaId(alertaId);
             leitura.setLidoEm(OffsetDateTime.now());
-            leituras.save(leitura);
+            try {
+                leituras.save(leitura);
+            } catch (DataIntegrityViolationException jaLido) {
+                // Outra requisição concorrente já gravou a leitura entre o
+                // existsBy acima e este save — no-op, mesmo efeito de "já lido".
+            }
         }
     }
 }
