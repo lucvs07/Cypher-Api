@@ -40,7 +40,7 @@ GESTOR_PASSWORD="${CYPHER_DEMO_GESTOR_PASSWORD:?defina CYPHER_DEMO_GESTOR_PASSWO
 COOKIE_JAR="$(mktemp)"
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
-H2_JAR="$(find "${HOME}/.m2/repository/com/h2database/h2" -iname 'h2-2*.jar' 2>/dev/null | sort -V | tail -1)"
+H2_JAR="$(find "${HOME}/.m2/repository/com/h2database/h2" -iname 'h2-2*.jar' ! -iname '*-sources.jar' 2>/dev/null | sort -V | tail -1)"
 if [ -z "$H2_JAR" ]; then
   echo "h2 jar não encontrado em ~/.m2 — rode 'mvn dependency:resolve' primeiro." >&2
   exit 1
