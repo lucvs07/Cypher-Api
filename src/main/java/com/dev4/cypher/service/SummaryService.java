@@ -1,5 +1,6 @@
 package com.dev4.cypher.service;
 
+import com.dev4.cypher.catalog.CatalogValidationException;
 import com.dev4.cypher.dto.CameraResponse;
 import com.dev4.cypher.dto.StationResponse;
 import com.dev4.cypher.dto.SummaryResponse;
@@ -7,6 +8,7 @@ import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.repository.AlertaRepository;
 import com.dev4.cypher.security.TenantContext;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Agregações do dashboard.
@@ -28,6 +31,15 @@ import java.util.Map;
 @Service
 public class SummaryService {
 
+    private static final Set<String> TURNOS_VALIDOS = Set.of("A", "B", "N");
+
+    private static final Map<String, String> EPI_PARA_VIOLACAO = Map.of(
+            "capacete", "no_helmet",
+            "oculos",   "no_goggle",
+            "luvas",    "no_gloves",
+            "botas",    "no_boots"
+    );
+
     private final AlertaRepository repository;
     private final CatalogService catalogo;
 
@@ -36,8 +48,28 @@ public class SummaryService {
         this.catalogo = catalogo;
     }
 
+    private static boolean noTurno(OffsetDateTime dataHora, String turno, ZoneId zona) {
+        if (turno == null) {
+            return true;
+        }
+        int hora = dataHora.atZoneSameInstant(zona).getHour();
+        return switch (turno) {
+            case "A" -> hora >= 6 && hora < 14;
+            case "B" -> hora >= 14 && hora < 22;
+            case "N" -> hora >= 22 || hora < 6;
+            default -> throw new CatalogValidationException(HttpStatus.BAD_REQUEST,
+                    "turno invalido: " + turno + " (esperado A, B ou N)");
+        };
+    }
+
     @Transactional(readOnly = true)
     public SummaryResponse build() {
+        return build(null, null, null, null, null, false);
+    }
+
+    @Transactional(readOnly = true)
+    public SummaryResponse build(OffsetDateTime since, OffsetDateTime until,
+                                  String turno, String setor, String epi, boolean detalhado) {
         ZoneId zona = ZoneId.systemDefault();
         LocalDate hoje = LocalDate.now(zona);
         LocalDate ontem = hoje.minusDays(1);
@@ -53,6 +85,20 @@ public class SummaryService {
                 .filter(a -> !a.getDataHora().isBefore(inicioDaJanela))
                 .toList();
 
+        if (turno != null && !TURNOS_VALIDOS.contains(turno)) {
+            throw new CatalogValidationException(HttpStatus.BAD_REQUEST,
+                    "turno invalido: " + turno + " (esperado A, B ou N)");
+        }
+
+        String violacaoAlvo = null;
+        if (epi != null) {
+            violacaoAlvo = EPI_PARA_VIOLACAO.get(epi);
+            if (violacaoAlvo == null) {
+                throw new CatalogValidationException(HttpStatus.BAD_REQUEST,
+                        "epi invalido: " + epi + " (esperado um de " + EPI_PARA_VIOLACAO.keySet() + ")");
+            }
+        }
+
         Map<String, String> estacaoPorCamera = new HashMap<>();
         Map<String, StationResponse> estacoes = new HashMap<>();
         for (StationResponse estacao : catalogo.stations()) {
@@ -65,7 +111,6 @@ public class SummaryService {
         int incidentesHoje = 0;
         int incidentesOntem = 0;
         int criticosHoje = 0;
-        Map<String, Integer> porEstacaoHoje = new HashMap<>();
         Map<LocalDate, Integer> porDia = new HashMap<>();
 
         for (Alerta a : janela) {
@@ -77,22 +122,43 @@ public class SummaryService {
                 if (a.getSeveridade() >= 3) {
                     criticosHoje++;
                 }
-                // a.getCameraId() é prefixado pelo tenant desde a Tarefa 5;
-                // estacaoPorCamera é chaveado pelo código puro (CameraResponse.id()).
-                String estacaoId = estacaoPorCamera.get(TenantContext.codigo(a.getCameraId()));
-                if (estacaoId != null) {
-                    porEstacaoHoje.merge(estacaoId, 1, Integer::sum);
-                }
             } else if (dia.equals(ontem)) {
                 incidentesOntem++;
             }
+        }
+
+        // Janela do heatmap espacial (e, na Task 4, de distribuicaoTemporal):
+        // "hoje" continua sendo o default quando since/until nao vem, mas
+        // agora e um parametro, nao mais hardcoded (spec SS1.1).
+        OffsetDateTime desde = since != null ? since : hoje.atStartOfDay(zona).toOffsetDateTime();
+        OffsetDateTime ate = until != null ? until : OffsetDateTime.now(zona);
+
+        Map<String, Integer> porEstacaoNaJanela = new HashMap<>();
+        for (Alerta a : doTenant) {
+            if (a.getDataHora().isBefore(desde) || a.getDataHora().isAfter(ate)) {
+                continue;
+            }
+            if (!noTurno(a.getDataHora(), turno, zona)) {
+                continue;
+            }
+            if (violacaoAlvo != null && !a.getEpiMissing().contains(violacaoAlvo)) {
+                continue;
+            }
+            String estacaoId = estacaoPorCamera.get(TenantContext.codigo(a.getCameraId()));
+            if (estacaoId == null) {
+                continue;
+            }
+            if (setor != null && !setor.equals(estacoes.get(estacaoId).setor())) {
+                continue;
+            }
+            porEstacaoNaJanela.merge(estacaoId, 1, Integer::sum);
         }
 
         // Estações sem incidente aparecem com zero: uma célula ausente e uma
         // célula zerada significam coisas diferentes no heatmap.
         List<SummaryResponse.StationCell> heatmap = estacoes.values().stream()
                 .map(e -> new SummaryResponse.StationCell(e.id(), e.nome(), e.setor(),
-                        porEstacaoHoje.getOrDefault(e.id(), 0)))
+                        porEstacaoNaJanela.getOrDefault(e.id(), 0)))
                 .sorted((a, b) -> a.estacaoId().compareTo(b.estacaoId()))
                 .toList();
 
@@ -106,7 +172,66 @@ public class SummaryService {
                 .filter(a -> a.getStatus() == AlertaStatus.PENDENTE)
                 .count();
 
+        List<SummaryResponse.TemporalCell> distribuicaoTemporal = null;
+        if (detalhado) {
+            Map<String, Integer> porBucket = new HashMap<>();
+            for (Alerta a : doTenant) {
+                if (a.getDataHora().isBefore(desde) || a.getDataHora().isAfter(ate)) {
+                    continue;
+                }
+                if (!noTurno(a.getDataHora(), turno, zona)) {
+                    continue;
+                }
+                if (violacaoAlvo != null && !a.getEpiMissing().contains(violacaoAlvo)) {
+                    continue;
+                }
+                String estacaoId = estacaoPorCamera.get(TenantContext.codigo(a.getCameraId()));
+                if (setor != null && (estacaoId == null || !setor.equals(estacoes.get(estacaoId).setor()))) {
+                    continue;
+                }
+                var zoned = a.getDataHora().atZoneSameInstant(zona);
+                int diaSemana = zoned.getDayOfWeek().getValue() - 1; // 0=Seg .. 6=Dom
+                int faixa2h = zoned.getHour() / 2;
+                porBucket.merge(diaSemana + ":" + faixa2h, 1, Integer::sum);
+            }
+            distribuicaoTemporal = new ArrayList<>();
+            for (int dia = 0; dia < 7; dia++) {
+                for (int faixa = 0; faixa < 12; faixa++) {
+                    int contagem = porBucket.getOrDefault(dia + ":" + faixa, 0);
+                    distribuicaoTemporal.add(new SummaryResponse.TemporalCell(dia, faixa, contagem));
+                }
+            }
+        }
+
+        List<SummaryResponse.DayCount> historicoAnual = null;
+        if (detalhado) {
+            LocalDate anoInicio = LocalDate.of(hoje.getYear(), 1, 1);
+            LocalDate anoFim = LocalDate.of(hoje.getYear(), 12, 31);
+            Map<LocalDate, Integer> porDiaDoAno = new HashMap<>();
+            for (Alerta a : doTenant) {
+                LocalDate dia = a.getDataHora().atZoneSameInstant(zona).toLocalDate();
+                if (dia.isBefore(anoInicio) || dia.isAfter(anoFim)) {
+                    continue;
+                }
+                if (!noTurno(a.getDataHora(), turno, zona)) {
+                    continue;
+                }
+                if (violacaoAlvo != null && !a.getEpiMissing().contains(violacaoAlvo)) {
+                    continue;
+                }
+                String estacaoId = estacaoPorCamera.get(TenantContext.codigo(a.getCameraId()));
+                if (setor != null && (estacaoId == null || !setor.equals(estacoes.get(estacaoId).setor()))) {
+                    continue;
+                }
+                porDiaDoAno.merge(dia, 1, Integer::sum);
+            }
+            historicoAnual = new ArrayList<>();
+            for (LocalDate dia = anoInicio; !dia.isAfter(anoFim); dia = dia.plusDays(1)) {
+                historicoAnual.add(new SummaryResponse.DayCount(dia, porDiaDoAno.getOrDefault(dia, 0)));
+            }
+        }
+
         return new SummaryResponse(incidentesHoje, incidentesOntem, criticosHoje,
-                pendentes, heatmap, serie);
+                pendentes, heatmap, serie, distribuicaoTemporal, historicoAnual);
     }
 }

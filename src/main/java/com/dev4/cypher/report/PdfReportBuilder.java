@@ -42,9 +42,12 @@ public final class PdfReportBuilder {
             .append("</style></head><body>");
 
         html.append("<h1>Resumo executivo — Cypher</h1>");
-        // SummaryService.build() nao recebe periodo (spec E6 SS1.3) -- os KPIs
-        // sao ponto-no-tempo, o rotulo deixa isso explicito para nao sugerir
-        // que respeitam o since/until do placar abaixo.
+        // Desde a Task 6, SummaryService.build() recebe since/until/turno/setor/epi
+        // vindos do ReportController e os usa para filtrar o heatmap por estacao.
+        // Os KPIs deste bloco (incidentesHoje/Ontem, criticosHoje, pendentes),
+        // porem, continuam ponto-no-tempo -- nao respeitam esses filtros -- entao
+        // o rotulo "(hoje)" deixa isso explicito para nao sugerir que eles
+        // respeitam o since/until do placar abaixo.
         html.append("<h2>Indicadores (hoje)</h2><ul>")
             .append("<li>Incidentes hoje: ").append(s.incidentesHoje()).append("</li>")
             .append("<li>Incidentes ontem: ").append(s.incidentesOntem()).append("</li>")
