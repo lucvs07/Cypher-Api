@@ -71,6 +71,24 @@ class SecurityLockdownApiTest {
     }
 
     @Test
+    void notificacoesSemSessaoDevolve401() throws Exception {
+        mvc.perform(get("/api/v1/notificacoes")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void notificacoesContagemNaoLidasSemSessaoDevolve401() throws Exception {
+        mvc.perform(get("/api/v1/notificacoes/contagem-nao-lidas")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void notificacoesMarcarLidasSemSessaoDevolve401() throws Exception {
+        mvc.perform(post("/api/v1/notificacoes/marcar-lidas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"alertaIds\": [1]}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void summaryComSessaoGestorDevolve200() throws Exception {
         MockHttpSession gestor = loginGestorBootstrap(mvc);
 
@@ -103,6 +121,26 @@ class SecurityLockdownApiTest {
         MockHttpSession operador = loginOperador(mvc, token);
 
         mvc.perform(get("/api/v1/webhooks").session(operador)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void notificacoesComSessaoOperadorDevolve403() throws Exception {
+        MockHttpSession gestor = loginGestorBootstrap(mvc);
+        mvc.perform(post("/api/v1/stations").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"EST-NOTLOCK\", \"nome\": \"A\", \"setor\": \"s\"}"));
+        String token = com.jayway.jsonpath.JsonPath.read(
+                mvc.perform(post("/api/v1/stations/EST-NOTLOCK/token/regenerate").session(gestor))
+                        .andReturn().getResponse().getContentAsString(),
+                "$.token");
+        MockHttpSession operador = loginOperador(mvc, token);
+
+        mvc.perform(get("/api/v1/notificacoes").session(operador)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/notificacoes/contagem-nao-lidas").session(operador))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/notificacoes/marcar-lidas").session(operador)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"alertaIds\": [1]}"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
