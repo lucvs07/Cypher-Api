@@ -186,7 +186,7 @@ public class SummaryService {
                     continue;
                 }
                 String estacaoId = estacaoPorCamera.get(TenantContext.codigo(a.getCameraId()));
-                if (estacaoId == null || (setor != null && !setor.equals(estacoes.get(estacaoId).setor()))) {
+                if (setor != null && (estacaoId == null || !setor.equals(estacoes.get(estacaoId).setor()))) {
                     continue;
                 }
                 var zoned = a.getDataHora().atZoneSameInstant(zona);
@@ -220,7 +220,7 @@ public class SummaryService {
                     continue;
                 }
                 String estacaoId = estacaoPorCamera.get(TenantContext.codigo(a.getCameraId()));
-                if (estacaoId == null || (setor != null && !setor.equals(estacoes.get(estacaoId).setor()))) {
+                if (setor != null && (estacaoId == null || !setor.equals(estacoes.get(estacaoId).setor()))) {
                     continue;
                 }
                 porDiaDoAno.merge(dia, 1, Integer::sum);
