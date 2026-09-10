@@ -122,6 +122,42 @@ class NotificacaoControllerApiTest {
     }
 
     @Test
+    void contagemNaoLidasConsideraSoAJanelaDas30MaisRecentes() throws Exception {
+        MockHttpSession session = loginGestorBootstrap(mvc);
+        String apiKey = criarCameraEPegarApiKey(session, "CAM-NOT5", "EST-NOT5");
+
+        // 35 alertas: os 5 mais antigos ficam fora da janela das 30 mais
+        // recentes que /notificacoes e a contagem passam a compartilhar.
+        for (int i = 0; i < 35; i++) {
+            mvc.perform(post("/api/v1/incidents").header("X-Cypher-Key", apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(payloadDeIncidente("CAM-NOT5", "incident-not5-" + i, 3,
+                            "2026-09-01T00:%02d:00Z".formatted(i))));
+        }
+
+        // Mesmo com 35 alertas não lidos no total, a contagem do badge
+        // fica travada em 30 (o tamanho da janela) em vez do total real.
+        mvc.perform(get("/api/v1/notificacoes/contagem-nao-lidas").session(session))
+                .andExpect(jsonPath("$.naoLidas").value(30));
+
+        String corpoLista = mvc.perform(get("/api/v1/notificacoes").session(session))
+                .andReturn().getResponse().getContentAsString();
+        java.util.List<Integer> idsDaJanela = com.jayway.jsonpath.JsonPath.read(corpoLista, "$[*].id");
+        assertThat(idsDaJanela).hasSize(30);
+
+        String corpoMarcar = "{\"alertaIds\": " + idsDaJanela + "}";
+        mvc.perform(post("/api/v1/notificacoes/marcar-lidas").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoMarcar))
+                .andExpect(status().isNoContent());
+
+        // Marcar como lidos só os ids da janela já zera o badge, mesmo
+        // havendo 5 alertas mais antigos e ainda não lidos fora dela.
+        mvc.perform(get("/api/v1/notificacoes/contagem-nao-lidas").session(session))
+                .andExpect(jsonPath("$.naoLidas").value(0));
+    }
+
+    @Test
     void marcarLidasENaoQuebraSeChamadaDeNovoComOMesmoId() throws Exception {
         MockHttpSession session = loginGestorBootstrap(mvc);
         String apiKey = criarCameraEPegarApiKey(session, "CAM-NOT4", "EST-NOT4");

@@ -31,13 +31,8 @@ public class NotificacaoService {
 
     /** Últimas 30 notificações da empresa, mais recente primeiro, cada uma com o flag `lida` do usuário atual. */
     public List<NotificacaoResponse> listar(String empresaId, String usuario) {
-        List<Alerta> recentes = alertas.buscar(empresaId, null, null, null, null, null,
-                PageRequest.of(0, JANELA, Sort.by("dataHora").descending())).getContent();
-
-        Set<Long> lidos = recentes.isEmpty() ? Set.of()
-                : leituras.findByEmpresaIdAndUsuarioAndAlertaIdIn(empresaId, usuario,
-                        recentes.stream().map(Alerta::getId).toList())
-                    .stream().map(AlertaLeitura::getAlertaId).collect(Collectors.toSet());
+        List<Alerta> recentes = buscarJanela(empresaId);
+        Set<Long> lidos = idsLidos(empresaId, usuario, recentes);
 
         return recentes.stream()
                 .map(a -> new NotificacaoResponse(a.getId(), TenantContext.codigo(a.getCameraId()), a.getTipo(),
@@ -45,8 +40,31 @@ public class NotificacaoService {
                 .toList();
     }
 
+    /**
+     * Não lidas dentro da mesma janela das últimas 30 notificações que
+     * {@link #listar} expõe — deliberadamente NÃO é uma contagem de todo o
+     * histórico da empresa (decisão de escopo pós-entrega: ver
+     * badge-window-fix-report.md). Isso garante que abrir o painel e
+     * marcar como lidos os ids ali listados sempre consegue zerar o
+     * badge, mesmo que existam alertas não lidos mais antigos fora da
+     * janela.
+     */
     public long contarNaoLidas(String empresaId, String usuario) {
-        return alertas.contarNaoLidas(empresaId, usuario);
+        List<Alerta> recentes = buscarJanela(empresaId);
+        Set<Long> lidos = idsLidos(empresaId, usuario, recentes);
+        return recentes.stream().filter(a -> !lidos.contains(a.getId())).count();
+    }
+
+    private List<Alerta> buscarJanela(String empresaId) {
+        return alertas.buscar(empresaId, null, null, null, null, null,
+                PageRequest.of(0, JANELA, Sort.by("dataHora").descending())).getContent();
+    }
+
+    private Set<Long> idsLidos(String empresaId, String usuario, List<Alerta> janela) {
+        return janela.isEmpty() ? Set.of()
+                : leituras.findByEmpresaIdAndUsuarioAndAlertaIdIn(empresaId, usuario,
+                        janela.stream().map(Alerta::getId).toList())
+                    .stream().map(AlertaLeitura::getAlertaId).collect(Collectors.toSet());
     }
 
     /**
