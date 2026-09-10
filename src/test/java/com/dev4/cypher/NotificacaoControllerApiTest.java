@@ -79,17 +79,23 @@ class NotificacaoControllerApiTest {
         MockHttpSession session = loginGestorBootstrap(mvc);
         String apiKey = criarCameraEPegarApiKey(session, "CAM-NOT2", "EST-NOT2");
 
+        // Timestamps estritamente crescentes e distintos nas 32 iterações
+        // ("i % 24" antes repetia horário para i = 24..31, o que deixaria
+        // ambígua a asserção de "mais novo primeiro" abaixo).
+        Long idMaisRecente = null;
         for (int i = 0; i < 32; i++) {
-            String detectedAt = "2026-09-0%dT10:00:00Z".formatted(i < 9 ? 1 : 2);
-            mvc.perform(post("/api/v1/incidents").header("X-Cypher-Key", apiKey)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(payloadDeIncidente("CAM-NOT2", "incident-not2-" + i, 3,
-                            "2026-09-01T%02d:00:00Z".formatted(i % 24))));
+            String resposta = mvc.perform(post("/api/v1/incidents").header("X-Cypher-Key", apiKey)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(payloadDeIncidente("CAM-NOT2", "incident-not2-" + i, 3,
+                                    "2026-09-01T00:%02d:00Z".formatted(i))))
+                    .andReturn().getResponse().getContentAsString();
+            idMaisRecente = ((Number) com.jayway.jsonpath.JsonPath.read(resposta, "$.id")).longValue();
         }
 
         mvc.perform(get("/api/v1/notificacoes").session(session))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", org.hamcrest.Matchers.hasSize(30)));
+                .andExpect(jsonPath("$", org.hamcrest.Matchers.hasSize(30)))
+                .andExpect(jsonPath("$[0].id").value(idMaisRecente));
     }
 
     @Test
@@ -135,6 +141,21 @@ class NotificacaoControllerApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"alertaIds\": [" + id + "]}"))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void marcarLidasComAlertaIdsNuloDevolve400EmVezDe500() throws Exception {
+        MockHttpSession session = loginGestorBootstrap(mvc);
+
+        mvc.perform(post("/api/v1/notificacoes/marcar-lidas").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(post("/api/v1/notificacoes/marcar-lidas").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"alertaIds\": null}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

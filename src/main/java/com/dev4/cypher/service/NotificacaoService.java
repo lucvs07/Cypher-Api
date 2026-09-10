@@ -10,7 +10,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -54,35 +53,65 @@ public class NotificacaoService {
      * Cria a linha de leitura para cada id que pertence à empresa e ainda
      * não foi lido; ids de outra empresa ou já lidos são ignorados em
      * silêncio — idempotente por natureza (spec central-notificacoes §3/§5).
-     * A constraint única em {@code (empresaId, usuario, alertaId)} é o
-     * backstop contra a corrida de duas requisições concorrentes (ex.:
-     * duplo clique, duas abas abertas) marcando o mesmo alerta como lido
-     * entre o {@code existsBy} e o {@code save} abaixo — se ela disparar,
-     * tratamos como o mesmo no-op do caso "já lido", em vez de deixar o
-     * 500 vazar (não há {@code @RestControllerAdvice} genérico neste
-     * projeto para traduzi-lo).
+     *
+     * <p>Deliberadamente SEM {@code @Transactional} neste método: cada
+     * consulta (batch de pertencimento, batch de já-lidos) e o
+     * {@code saveAll} final rodam em sua própria transação curta (a
+     * transação implícita do próprio método do Spring Data), em vez de
+     * todos compartilharem uma única transação do método de serviço. Isso
+     * importa porque {@code AlertaLeitura} usa {@code GenerationType.IDENTITY}
+     * — o {@code INSERT} é disparado na hora do {@code save}, então uma
+     * violação da constraint única já surge ali; só que, com o método
+     * inteiro sob {@code @Transactional}, a tradução de exceção do
+     * Hibernate marca essa transação ENVOLVENTE como rollback-only, e no
+     * commit final o {@code JpaTransactionManager} lança
+     * {@code UnexpectedRollbackException} — outro 500, e descarta também
+     * toda linha de {@code AlertaLeitura} já gravada com sucesso mais cedo
+     * no mesmo laço/requisição. Sem a transação envolvente, um
+     * {@code DataIntegrityViolationException} vindo do {@code saveAll}
+     * fica contido à transação do próprio {@code saveAll}, e o catch abaixo
+     * (mantido como defesa em profundidade contra a corrida entre a
+     * consulta de "já lidos" e este save) realmente reduz o efeito a um
+     * no-op desta chamada — sem UnexpectedRollbackException e sem afetar
+     * chamadas/linhas anteriores.
      */
-    @Transactional
     public void marcarLidas(String empresaId, String usuario, List<Long> alertaIds) {
-        for (Long alertaId : alertaIds) {
-            boolean pertenceAEmpresa = alertas.findByIdAndEmpresaId(alertaId, empresaId).isPresent();
-            if (!pertenceAEmpresa) {
-                continue;
-            }
-            if (leituras.existsByEmpresaIdAndUsuarioAndAlertaId(empresaId, usuario, alertaId)) {
-                continue;
-            }
-            AlertaLeitura leitura = new AlertaLeitura();
-            leitura.setEmpresaId(empresaId);
-            leitura.setUsuario(usuario);
-            leitura.setAlertaId(alertaId);
-            leitura.setLidoEm(OffsetDateTime.now());
-            try {
-                leituras.save(leitura);
-            } catch (DataIntegrityViolationException jaLido) {
-                // Outra requisição concorrente já gravou a leitura entre o
-                // existsBy acima e este save — no-op, mesmo efeito de "já lido".
-            }
+        if (alertaIds.isEmpty()) {
+            return;
+        }
+
+        List<Long> pertencentesAEmpresa = alertas.findAllByIdInAndEmpresaId(alertaIds, empresaId)
+                .stream().map(Alerta::getId).toList();
+        if (pertencentesAEmpresa.isEmpty()) {
+            return;
+        }
+
+        Set<Long> jaLidos = leituras.findByEmpresaIdAndUsuarioAndAlertaIdIn(empresaId, usuario, pertencentesAEmpresa)
+                .stream().map(AlertaLeitura::getAlertaId).collect(Collectors.toSet());
+
+        List<AlertaLeitura> novasLeituras = pertencentesAEmpresa.stream()
+                .filter(id -> !jaLidos.contains(id))
+                .map(id -> {
+                    AlertaLeitura leitura = new AlertaLeitura();
+                    leitura.setEmpresaId(empresaId);
+                    leitura.setUsuario(usuario);
+                    leitura.setAlertaId(id);
+                    leitura.setLidoEm(OffsetDateTime.now());
+                    return leitura;
+                })
+                .toList();
+        if (novasLeituras.isEmpty()) {
+            return;
+        }
+
+        try {
+            leituras.saveAll(novasLeituras);
+        } catch (DataIntegrityViolationException jaLido) {
+            // Outra requisição concorrente gravou uma destas leituras entre
+            // o findByEmpresaIdAndUsuarioAndAlertaIdIn acima e este
+            // saveAll — no-op, mesmo efeito de "já lido" (defesa em
+            // profundidade; ver Javadoc do método sobre por que isto agora
+            // realmente funciona em produção).
         }
     }
 }

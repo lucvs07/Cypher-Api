@@ -27,7 +27,7 @@ public class AlertaLeitura {
     private String empresaId;
 
     /** Username do GESTOR ("nome@empresaId", {@link com.dev4.cypher.security.TenantContext#username}) — não há Usuario.id acessível na Authentication atual. */
-    @Column(nullable = false, length = 60)
+    @Column(nullable = false, length = 90)
     private String usuario;
 
     @Column(name = "alerta_id", nullable = false)

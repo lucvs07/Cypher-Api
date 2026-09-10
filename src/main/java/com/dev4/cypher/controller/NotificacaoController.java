@@ -5,6 +5,7 @@ import com.dev4.cypher.dto.MarcarLidasRequest;
 import com.dev4.cypher.dto.NotificacaoResponse;
 import com.dev4.cypher.security.TenantContext;
 import com.dev4.cypher.service.NotificacaoService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,7 +37,7 @@ public class NotificacaoController {
     }
 
     @PostMapping("/marcar-lidas")
-    public ResponseEntity<Void> marcarLidas(@RequestBody MarcarLidasRequest req) {
+    public ResponseEntity<Void> marcarLidas(@Valid @RequestBody MarcarLidasRequest req) {
         service.marcarLidas(TenantContext.currentEmpresaId(), TenantContext.currentUsername(), req.alertaIds());
         return ResponseEntity.noContent().build();
     }

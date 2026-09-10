@@ -7,10 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.List;
-import java.util.Optional;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -18,29 +16,32 @@ import static org.mockito.Mockito.when;
 
 /**
  * {@code marcarLidas} não deve deixar vazar um 500 quando a constraint única
- * de {@code AlertaLeitura} dispara — cenário de corrida entre o
- * {@code existsBy} e o {@code save} (duas requisições concorrentes marcando
- * o mesmo alerta como lido ao mesmo tempo). Simulado aqui com mocks porque
- * reproduzir a corrida de verdade via MockMvc/H2 exigiria threads
- * concorrentes disputando a mesma linha, o que seria não-determinístico;
- * mockar {@code save} para lançar a mesma exceção que a constraint jogaria
- * cobre o mesmo caminho de código de forma determinística (achado da
- * revisão da Tarefa 3).
+ * de {@code AlertaLeitura} dispara — cenário de corrida entre a consulta de
+ * "já lidos" e o {@code saveAll} (duas requisições concorrentes marcando o
+ * mesmo alerta como lido ao mesmo tempo). Simulado aqui com mocks porque é
+ * determinístico e cobre o caminho de código do catch; a prova de que isto
+ * também funciona com transações reais (sem {@code UnexpectedRollbackException}
+ * do antigo {@code @Transactional} do método) está em
+ * {@code NotificacaoMarcarLidasConcorrenciaApiTest}, que usa threads reais
+ * contra o H2 (achado da revisão final da Tarefa 3).
  */
 class NotificacaoServiceTest {
 
     @Test
-    void marcarLidasNaoPropagaViolacaoDeConstraintQuandoOutraRequisicaoJaGravouEntreOExistsEOSave() {
+    void marcarLidasNaoPropagaViolacaoDeConstraintQuandoOutraRequisicaoJaGravouEntreAConsultaEOSaveAll() {
         AlertaRepository alertas = mock(AlertaRepository.class);
         AlertaLeituraRepository leituras = mock(AlertaLeituraRepository.class);
         NotificacaoService service = new NotificacaoService(alertas, leituras);
 
-        when(alertas.findByIdAndEmpresaId(anyLong(), anyString())).thenReturn(Optional.of(new Alerta()));
-        when(leituras.existsByEmpresaIdAndUsuarioAndAlertaId(anyString(), anyString(), anyLong())).thenReturn(false);
-        when(leituras.save(any())).thenThrow(new DataIntegrityViolationException("unique constraint"));
+        Alerta alerta = new Alerta();
+        alerta.setId(42L);
+        when(alertas.findAllByIdInAndEmpresaId(anyList(), anyString())).thenReturn(List.of(alerta));
+        when(leituras.findByEmpresaIdAndUsuarioAndAlertaIdIn(anyString(), anyString(), anyList()))
+                .thenReturn(List.of());
+        when(leituras.saveAll(anyList())).thenThrow(new DataIntegrityViolationException("unique constraint"));
 
         service.marcarLidas("acme-test", "admin@acme-test", List.of(42L));
 
-        verify(leituras).save(any());
+        verify(leituras).saveAll(anyList());
     }
 }

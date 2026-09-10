@@ -30,6 +30,9 @@ public interface AlertaRepository extends JpaRepository<Alerta, Long> {
     /** Busca por id restrita ao tenant atual — um id de outro tenant vem vazio (achado de segurança pós-Tarefa 5). */
     Optional<Alerta> findByIdAndEmpresaId(Long id, String empresaId);
 
+    /** Batch de {@link #findByIdAndEmpresaId} — filtra de uma vez quais ids pertencem à empresa (revisão final da Tarefa 3). */
+    List<Alerta> findAllByIdInAndEmpresaId(List<Long> ids, String empresaId);
+
     /**
      * Busca com filtros opcionais. Cada parâmetro nulo desliga seu próprio
      * predicado, o que evita quatro métodos derivados quase idênticos.
