@@ -1,5 +1,6 @@
 package com.dev4.cypher;
 
+import com.dev4.cypher.repository.AlertaLeituraRepository;
 import com.dev4.cypher.repository.AlertaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static com.dev4.cypher.security.AuthTestSupport.loginGestorBootstrap;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -27,6 +29,9 @@ class NotificacaoControllerApiTest {
 
     @Autowired
     private AlertaRepository alertas;
+
+    @Autowired
+    private AlertaLeituraRepository leituras;
 
     // Outras suites (ex.: IncidentQueryApiTest) nao sao transacionais e
     // deixam alertas do tenant "acme-test" commitados no H2 compartilhado;
@@ -85,6 +90,87 @@ class NotificacaoControllerApiTest {
         mvc.perform(get("/api/v1/notificacoes").session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", org.hamcrest.Matchers.hasSize(30)));
+    }
+
+    @Test
+    void marcarLidasZeraContagemEAtualizaFlagNaLista() throws Exception {
+        MockHttpSession session = loginGestorBootstrap(mvc);
+        String apiKey = criarCameraEPegarApiKey(session, "CAM-NOT3", "EST-NOT3");
+        mvc.perform(post("/api/v1/incidents").header("X-Cypher-Key", apiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payloadDeIncidente("CAM-NOT3", "incident-not-3")));
+
+        String corpoLista = mvc.perform(get("/api/v1/notificacoes").session(session))
+                .andReturn().getResponse().getContentAsString();
+        Long id = ((Number) com.jayway.jsonpath.JsonPath.read(corpoLista, "$[0].id")).longValue();
+
+        mvc.perform(post("/api/v1/notificacoes/marcar-lidas").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"alertaIds\": [" + id + "]}"))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/v1/notificacoes/contagem-nao-lidas").session(session))
+                .andExpect(jsonPath("$.naoLidas").value(0));
+        mvc.perform(get("/api/v1/notificacoes").session(session))
+                .andExpect(jsonPath("$[0].lida").value(true));
+    }
+
+    @Test
+    void marcarLidasENaoQuebraSeChamadaDeNovoComOMesmoId() throws Exception {
+        MockHttpSession session = loginGestorBootstrap(mvc);
+        String apiKey = criarCameraEPegarApiKey(session, "CAM-NOT4", "EST-NOT4");
+        mvc.perform(post("/api/v1/incidents").header("X-Cypher-Key", apiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payloadDeIncidente("CAM-NOT4", "incident-not-4")));
+        String corpoLista = mvc.perform(get("/api/v1/notificacoes").session(session))
+                .andReturn().getResponse().getContentAsString();
+        Long id = ((Number) com.jayway.jsonpath.JsonPath.read(corpoLista, "$[0].id")).longValue();
+
+        mvc.perform(post("/api/v1/notificacoes/marcar-lidas").session(session)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"alertaIds\": [" + id + "]}"));
+
+        // Reenviar o mesmo id não deve lançar (constraint única) nem duplicar linha.
+        mvc.perform(post("/api/v1/notificacoes/marcar-lidas").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"alertaIds\": [" + id + "]}"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void marcarLidasIgnoraIdDeAlertaDeOutraEmpresa() throws Exception {
+        MockHttpSession session = loginGestorBootstrap(mvc);
+
+        Long idDeOutraEmpresa = alertas.saveAndFlush(incidenteDeOutraEmpresa()).getId();
+
+        mvc.perform(post("/api/v1/notificacoes/marcar-lidas").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"alertaIds\": [" + idDeOutraEmpresa + "]}"))
+                .andExpect(status().isNoContent());
+
+        assertThat(leituras.existsByEmpresaIdAndUsuarioAndAlertaId(
+                "globex-not", com.dev4.cypher.security.AuthTestSupport.GESTOR_USERNAME, idDeOutraEmpresa)).isFalse();
+    }
+
+    private com.dev4.cypher.model.Alerta incidenteDeOutraEmpresa() {
+        com.dev4.cypher.model.Alerta a = new com.dev4.cypher.model.Alerta();
+        a.setIncidentKey("globex-not:foreign-1");
+        a.setCameraId("globex-not:CAM-X");
+        a.setRunId("run-x");
+        a.setTrackId(1);
+        a.setTipo(com.dev4.cypher.model.AlertaTipo.FALL_RISK);
+        a.setSeveridade(4);
+        a.setNivel(com.dev4.cypher.model.AlertaNivel.fromSeverity(4));
+        a.setReason("r");
+        a.setPosturaCategoria("immediate_risk");
+        a.setRebaScore(11);
+        a.setActionLevel(4);
+        a.setZoneStatus("outside");
+        a.setDescricao("Fixture de outro tenant");
+        a.setDataHora(java.time.OffsetDateTime.parse("2026-09-01T10:00:00Z"));
+        a.setStatus(com.dev4.cypher.model.AlertaStatus.PENDENTE);
+        a.setEmpresaId("globex-not");
+        return a;
     }
 
     private String criarCameraEPegarApiKey(MockHttpSession session, String codigo, String estacaoId) throws Exception {

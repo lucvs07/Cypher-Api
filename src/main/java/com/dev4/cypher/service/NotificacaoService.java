@@ -9,7 +9,9 @@ import com.dev4.cypher.security.TenantContext;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -45,5 +47,29 @@ public class NotificacaoService {
 
     public long contarNaoLidas(String empresaId, String usuario) {
         return alertas.contarNaoLidas(empresaId, usuario);
+    }
+
+    /**
+     * Cria a linha de leitura para cada id que pertence à empresa e ainda
+     * não foi lido; ids de outra empresa ou já lidos são ignorados em
+     * silêncio — idempotente por natureza (spec central-notificacoes §3/§5).
+     */
+    @Transactional
+    public void marcarLidas(String empresaId, String usuario, List<Long> alertaIds) {
+        for (Long alertaId : alertaIds) {
+            boolean pertenceAEmpresa = alertas.findByIdAndEmpresaId(alertaId, empresaId).isPresent();
+            if (!pertenceAEmpresa) {
+                continue;
+            }
+            if (leituras.existsByEmpresaIdAndUsuarioAndAlertaId(empresaId, usuario, alertaId)) {
+                continue;
+            }
+            AlertaLeitura leitura = new AlertaLeitura();
+            leitura.setEmpresaId(empresaId);
+            leitura.setUsuario(usuario);
+            leitura.setAlertaId(alertaId);
+            leitura.setLidoEm(OffsetDateTime.now());
+            leituras.save(leitura);
+        }
     }
 }

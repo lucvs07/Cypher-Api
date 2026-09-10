@@ -1,10 +1,14 @@
 package com.dev4.cypher.controller;
 
 import com.dev4.cypher.dto.ContagemNotificacoesResponse;
+import com.dev4.cypher.dto.MarcarLidasRequest;
 import com.dev4.cypher.dto.NotificacaoResponse;
 import com.dev4.cypher.security.TenantContext;
 import com.dev4.cypher.service.NotificacaoService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,5 +33,11 @@ public class NotificacaoController {
     public ContagemNotificacoesResponse contagemNaoLidas() {
         return new ContagemNotificacoesResponse(
                 service.contarNaoLidas(TenantContext.currentEmpresaId(), TenantContext.currentUsername()));
+    }
+
+    @PostMapping("/marcar-lidas")
+    public ResponseEntity<Void> marcarLidas(@RequestBody MarcarLidasRequest req) {
+        service.marcarLidas(TenantContext.currentEmpresaId(), TenantContext.currentUsername(), req.alertaIds());
+        return ResponseEntity.noContent().build();
     }
 }
