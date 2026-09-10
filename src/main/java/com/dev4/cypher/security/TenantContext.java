@@ -46,4 +46,13 @@ public final class TenantContext {
         int i = chave.indexOf(':');
         return i < 0 ? chave : chave.substring(i + 1);
     }
+
+    /** Username do GESTOR autenticado — só ele hoje consome notificações (spec central-notificacoes §1). */
+    public static String currentUsername() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof GestorAuthentication g) {
+            return g.getUsername();
+        }
+        throw new IllegalStateException("Notificacoes exigem sessao de GESTOR");
+    }
 }

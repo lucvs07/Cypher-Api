@@ -56,4 +56,15 @@ public interface AlertaRepository extends JpaRepository<Alerta, Long> {
                         @Param("status") AlertaStatus status,
                         @Param("estacaoId") String estacaoId,
                         Pageable pageable);
+
+    /** Notificações não lidas: alertas da empresa sem linha correspondente em AlertaLeitura para este usuário. */
+    @Query("""
+            SELECT COUNT(a) FROM Alerta a
+            WHERE a.empresaId = :empresaId
+              AND a.id NOT IN (
+                SELECT l.alertaId FROM AlertaLeitura l
+                WHERE l.empresaId = :empresaId AND l.usuario = :usuario
+              )
+            """)
+    long contarNaoLidas(@Param("empresaId") String empresaId, @Param("usuario") String usuario);
 }
