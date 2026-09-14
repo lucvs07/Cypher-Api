@@ -95,6 +95,19 @@ Requer o backend já rodando; usa `scripts/seed_gamificacao_demo.py` para o hist
 
 Variáveis de ambiente relevantes para análise por LLM (`cypher.llm` em `application.yaml`): `CYPHER_CLAUDE_API_KEY`, `CYPHER_GEMINI_API_KEY` (provider default: `claude`).
 
+### Subindo os 3 projetos juntos (backend + front + captura)
+
+Para rodar o sistema completo (não só este backend) com dado real da empresa `demo`, use `scripts/subir-empresa-demo.sh` (presente também em `cypher-front` e `cypher-capture` — pode rodar a partir de qualquer um dos três):
+
+```bash
+./scripts/subir-empresa-demo.sh start   # sobe backend, semeia a empresa demo, sobe o front e a webcam
+./scripts/subir-empresa-demo.sh status
+./scripts/subir-empresa-demo.sh logs
+./scripts/subir-empresa-demo.sh stop
+```
+
+Por padrão assume os repositórios em `~/projects/cypher`, `~/projects/challenge/cypher-front` e `~/projects/challenge/cypher-capture` (configurável por variável de ambiente — ver cabeçalho do script). Detalhes: [`arquitetura.md`](https://github.com/Ronaldovels/cypher-front/blob/dev/docs/arquitetura.md) do `cypher-front`.
+
 ## Stack técnica
 
 Verificado em `pom.xml`:
