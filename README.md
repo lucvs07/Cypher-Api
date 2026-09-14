@@ -142,6 +142,12 @@ src/main/java/com/dev4/cypher/
 
 Suíte de testes em `src/test/java`, cobrindo controllers, services e segurança.
 
+## Vídeo de demonstração
+
+**Link:** `[PREENCHER: link do vídeo]`
+
+Vídeo único, centralizado no repositório principal ([`cypher-front`](https://github.com/Ronaldovels/cypher-front#-vídeo-de-demonstração)), navegando pelas principais telas do sistema com os 3 projetos rodando localmente (dado real da empresa `demo`).
+
 ## Gestão ágil (Sprint 3)
 
 Este repositório é secundário na entrega — a documentação de gestão ágil (Trello, cerimônias, roteiro) é centralizada no repositório principal, [`cypher-front`](https://github.com/Ronaldovels/cypher-front).
