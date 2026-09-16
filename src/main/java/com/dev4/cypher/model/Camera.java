@@ -76,12 +76,50 @@ public class Camera {
     private int anguloCameraGraus;
 
     /**
-     * Construtor de compatibilidade com o formato anterior (sem rotacao/anguloCameraGraus),
-     * usado pelos testes existentes. Lombok gera separadamente o @AllArgsConstructor com os
-     * 10 campos atuais — os dois convivem porque têm aridade diferente.
+     * Overrides por câmera dos limiares de detecção de queda (achado SPI 2026-09-16:
+     * câmera com pitch quase vertical, olhando de cima pra mesa, faz os limiares
+     * globais do YAML dispararem falso-positivo numa pessoa só debruçada). Nulo
+     * significa "usa o default do YAML do pipeline" — nunca um valor numérico
+     * mágico, porque não existe um "sem override" seguro para esses limiares.
+     */
+    @Column
+    private Double fallenAspectRatio;
+
+    @Column
+    private Double fallenVerticalExtent;
+
+    @Column
+    private Double trunkRotationMax;
+
+    /**
+     * Op-in por câmera: exige 2 evidências de queda concordando em vez de
+     * qualquer 1 (troca recall por precisão). Nulo = usa o default do YAML
+     * (hoje False). Não confundir com os limiares acima — isso é sobre
+     * QUANTAS evidências bastam, não sobre onde o limiar fica.
+     */
+    @Column
+    private Boolean fallRequireCorroboration;
+
+    /**
+     * Construtor de compatibilidade com o formato anterior (sem os campos de tuning
+     * de queda), usado pelos testes existentes. Lombok gera separadamente o
+     * @AllArgsConstructor com os 14 campos atuais — os dois convivem porque têm
+     * aridade diferente.
      */
     public Camera(String id, String nome, String estacaoId, String streamUrl, String fonte,
                   boolean ativa, String apiKey, String empresaId) {
-        this(id, nome, estacaoId, streamUrl, fonte, ativa, apiKey, empresaId, 0, 0);
+        this(id, nome, estacaoId, streamUrl, fonte, ativa, apiKey, empresaId, 0, 0,
+                null, null, null, null);
+    }
+
+    /**
+     * Construtor de compatibilidade intermediario (com rotacao/anguloCameraGraus,
+     * sem os campos de tuning de queda) — usado por CatalogService.createCamera,
+     * que ainda monta esses dois primeiro e aplica os overrides de queda via setter.
+     */
+    public Camera(String id, String nome, String estacaoId, String streamUrl, String fonte,
+                  boolean ativa, String apiKey, String empresaId, int rotacao, int anguloCameraGraus) {
+        this(id, nome, estacaoId, streamUrl, fonte, ativa, apiKey, empresaId,
+                rotacao, anguloCameraGraus, null, null, null, null);
     }
 }

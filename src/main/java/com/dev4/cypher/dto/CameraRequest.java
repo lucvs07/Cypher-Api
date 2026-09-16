@@ -26,6 +26,10 @@ public record CameraRequest(
         @Size(max = 500) String fonte,
         Boolean ativa,
         Integer rotacao,
-        @Min(-45) @Max(45) Integer anguloCameraGraus
+        @Min(-45) @Max(45) Integer anguloCameraGraus,
+        Double fallenAspectRatio,
+        Double fallenVerticalExtent,
+        Double trunkRotationMax,
+        Boolean fallRequireCorroboration
 ) {
 }

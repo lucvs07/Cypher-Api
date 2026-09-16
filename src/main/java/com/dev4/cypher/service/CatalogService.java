@@ -150,6 +150,10 @@ public class CatalogService {
                 req.streamUrl(), req.fonte(), req.ativa() == null || req.ativa(),
                 TokenGenerator.novo("cam-key"), TenantContext.currentEmpresaId(),
                 rotacao, angulo);
+        nova.setFallenAspectRatio(req.fallenAspectRatio());
+        nova.setFallenVerticalExtent(req.fallenVerticalExtent());
+        nova.setTrunkRotationMax(req.trunkRotationMax());
+        nova.setFallRequireCorroboration(req.fallRequireCorroboration());
         return toAdminResponse(cameras.saveAndFlush(nova));
     }
 
@@ -176,6 +180,14 @@ public class CatalogService {
             if (req.anguloCameraGraus() != null) {
                 camera.setAnguloCameraGraus(req.anguloCameraGraus());
             }
+            // Overrides de tuning de queda: sempre sobrescreve (inclusive pra
+            // null), porque null AQUI e um estado valido e intencional ("volta
+            // a usar o default do YAML"), diferente do "nao mexer" de ativa/
+            // rotacao/anguloCameraGraus.
+            camera.setFallenAspectRatio(req.fallenAspectRatio());
+            camera.setFallenVerticalExtent(req.fallenVerticalExtent());
+            camera.setTrunkRotationMax(req.trunkRotationMax());
+            camera.setFallRequireCorroboration(req.fallRequireCorroboration());
             return toAdminResponse(cameras.saveAndFlush(camera));
         });
     }
@@ -229,7 +241,11 @@ public class CatalogService {
                     CatalogCodes.portaDe(camera.getStreamUrl()),
                     camera.isAtiva(),
                     camera.getRotacao(),
-                    camera.getAnguloCameraGraus());
+                    camera.getAnguloCameraGraus(),
+                    camera.getFallenAspectRatio(),
+                    camera.getFallenVerticalExtent(),
+                    camera.getTrunkRotationMax(),
+                    camera.getFallRequireCorroboration());
         });
     }
 

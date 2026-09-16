@@ -18,6 +18,10 @@ public record CameraConfigResponse(
         int streamPort,
         boolean ativa,
         int rotacao,
-        int anguloCameraGraus
+        int anguloCameraGraus,
+        Double fallenAspectRatio,
+        Double fallenVerticalExtent,
+        Double trunkRotationMax,
+        Boolean fallRequireCorroboration
 ) {
 }
