@@ -14,6 +14,8 @@ public record CameraAdminResponse(
         String estacaoId,
         String streamUrl,
         String fonte,
-        boolean ativa
+        boolean ativa,
+        int rotacao,
+        int anguloCameraGraus
 ) {
 }

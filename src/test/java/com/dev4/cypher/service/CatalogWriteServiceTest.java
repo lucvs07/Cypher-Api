@@ -181,7 +181,7 @@ class CatalogWriteServiceTest {
     private CameraRequest frontal() {
         return new CameraRequest("CAM-01", "Frontal", "EST-01",
                 "http://127.0.0.1:8090/stream",
-                "rtsp://${CAM01_USER}:${CAM01_PASS}@10.0.0.7/stream", null);
+                "rtsp://${CAM01_USER}:${CAM01_PASS}@10.0.0.7/stream", null, null, null);
     }
 
     @Test
@@ -222,7 +222,7 @@ class CatalogWriteServiceTest {
 
         assertThatThrownBy(() -> service.createCamera(new CameraRequest(
                 "CAM-02", "Lateral", "EST-01",
-                "http://127.0.0.1:8090/stream", "rtsp://outra", null)))
+                "http://127.0.0.1:8090/stream", "rtsp://outra", null, null, null)))
                 .isInstanceOf(CatalogValidationException.class)
                 .satisfies(e -> assertThat(((CatalogValidationException) e).getStatus())
                         .isEqualTo(HttpStatus.CONFLICT));
@@ -243,12 +243,23 @@ class CatalogWriteServiceTest {
     }
 
     @Test
+    void recusaRotacaoForaDoConjuntoPermitido() {
+        service.createStation(esteira());
+
+        assertThatThrownBy(() -> service.createCamera(new CameraRequest(
+                "CAM-02", "Lateral", "EST-01",
+                "http://127.0.0.1:8092/stream", "rtsp://x", null, 45, null)))
+                .isInstanceOf(CatalogValidationException.class)
+                .hasMessageContaining("rotacao");
+    }
+
+    @Test
     void recusaStreamUrlSemPortaExplicita() {
         service.createStation(esteira());
 
         assertThatThrownBy(() -> service.createCamera(new CameraRequest(
                 "CAM-02", "Lateral", "EST-01",
-                "http://127.0.0.1/stream", "rtsp://x", null)))
+                "http://127.0.0.1/stream", "rtsp://x", null, null, null)))
                 .isInstanceOf(CatalogValidationException.class)
                 .satisfies(e -> assertThat(((CatalogValidationException) e).getStatus())
                         .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
@@ -261,7 +272,7 @@ class CatalogWriteServiceTest {
 
         assertThatThrownBy(() -> service.updateCamera("CAM-01", new CameraRequest(
                 "CAM-99", "Frontal", "EST-01",
-                "http://127.0.0.1:8090/stream", "rtsp://x", null)))
+                "http://127.0.0.1:8090/stream", "rtsp://x", null, null, null)))
                 .isInstanceOf(CatalogValidationException.class);
     }
 
@@ -272,7 +283,7 @@ class CatalogWriteServiceTest {
 
         Optional<CameraAdminResponse> editada = service.updateCamera("CAM-01",
                 new CameraRequest("CAM-01", "Frontal HD", "EST-01",
-                        "http://127.0.0.1:8090/stream", "rtsp://nova", null));
+                        "http://127.0.0.1:8090/stream", "rtsp://nova", null, null, null));
 
         assertThat(editada).isPresent();
         assertThat(editada.get().nome()).isEqualTo("Frontal HD");
@@ -299,7 +310,7 @@ class CatalogWriteServiceTest {
         service.deactivateCamera("CAM-01");
 
         service.updateCamera("CAM-01", new CameraRequest("CAM-01", "Frontal", "EST-01",
-                "http://127.0.0.1:8090/stream", "rtsp://x", true));
+                "http://127.0.0.1:8090/stream", "rtsp://x", true, null, null));
 
         assertThat(service.cameras()).extracting(c -> c.id()).containsExactly("CAM-01");
     }

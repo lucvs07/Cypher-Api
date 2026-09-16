@@ -64,4 +64,24 @@ public class Camera {
 
     @Column(nullable = false, length = 30)
     private String empresaId;
+
+    /** Graus horários para corrigir câmera montada virada; aplicado ao frame inteiro pelo pipeline. */
+    @ColumnDefault("0")
+    @Column(nullable = false)
+    private int rotacao;
+
+    /** Roll fino (-45 a 45) usado só no cálculo de flexão de tronco do REBA, não gira o frame. */
+    @ColumnDefault("0")
+    @Column(nullable = false)
+    private int anguloCameraGraus;
+
+    /**
+     * Construtor de compatibilidade com o formato anterior (sem rotacao/anguloCameraGraus),
+     * usado pelos testes existentes. Lombok gera separadamente o @AllArgsConstructor com os
+     * 10 campos atuais — os dois convivem porque têm aridade diferente.
+     */
+    public Camera(String id, String nome, String estacaoId, String streamUrl, String fonte,
+                  boolean ativa, String apiKey, String empresaId) {
+        this(id, nome, estacaoId, streamUrl, fonte, ativa, apiKey, empresaId, 0, 0);
+    }
 }

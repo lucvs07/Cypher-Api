@@ -143,10 +143,13 @@ public class CatalogService {
         exigirEstacao(estacaoId);
         exigirUrlLivre(req.streamUrl(), id);
         CatalogCodes.portaDe(req.streamUrl());
+        int rotacao = validarRotacao(req.rotacao());
+        int angulo = req.anguloCameraGraus() == null ? 0 : req.anguloCameraGraus();
 
         Camera nova = new Camera(id, req.nome(), estacaoId,
                 req.streamUrl(), req.fonte(), req.ativa() == null || req.ativa(),
-                TokenGenerator.novo("cam-key"), TenantContext.currentEmpresaId());
+                TokenGenerator.novo("cam-key"), TenantContext.currentEmpresaId(),
+                rotacao, angulo);
         return toAdminResponse(cameras.saveAndFlush(nova));
     }
 
@@ -166,6 +169,12 @@ public class CatalogService {
             camera.setFonte(req.fonte());
             if (req.ativa() != null) {
                 camera.setAtiva(req.ativa());
+            }
+            if (req.rotacao() != null) {
+                camera.setRotacao(validarRotacao(req.rotacao()));
+            }
+            if (req.anguloCameraGraus() != null) {
+                camera.setAnguloCameraGraus(req.anguloCameraGraus());
             }
             return toAdminResponse(cameras.saveAndFlush(camera));
         });
@@ -218,7 +227,9 @@ public class CatalogService {
                     TenantContext.codigo(camera.getEstacaoId()),
                     camera.getFonte(),
                     CatalogCodes.portaDe(camera.getStreamUrl()),
-                    camera.isAtiva());
+                    camera.isAtiva(),
+                    camera.getRotacao(),
+                    camera.getAnguloCameraGraus());
         });
     }
 
@@ -243,6 +254,17 @@ public class CatalogService {
      * desconhecida é aceito (nunca perder dado), mas cadastrar câmera de
      * estação inexistente falha rápido, porque é ação humana deliberada.
      */
+    private static final java.util.Set<Integer> ROTACOES_VALIDAS = java.util.Set.of(0, 90, 180, 270);
+
+    private int validarRotacao(Integer rotacao) {
+        int valor = rotacao == null ? 0 : rotacao;
+        if (!ROTACOES_VALIDAS.contains(valor)) {
+            throw new CatalogValidationException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "rotacao deve ser 0, 90, 180 ou 270: " + valor);
+        }
+        return valor;
+    }
+
     private void exigirEstacao(String estacaoIdPrefixado) {
         if (!estacoes.existsById(estacaoIdPrefixado)) {
             throw new CatalogValidationException(HttpStatus.UNPROCESSABLE_ENTITY,
@@ -280,7 +302,8 @@ public class CatalogService {
 
     private CameraAdminResponse toAdminResponse(Camera c) {
         return new CameraAdminResponse(TenantContext.codigo(c.getId()), c.getNome(),
-                TenantContext.codigo(c.getEstacaoId()), c.getStreamUrl(), c.getFonte(), c.isAtiva());
+                TenantContext.codigo(c.getEstacaoId()), c.getStreamUrl(), c.getFonte(), c.isAtiva(),
+                c.getRotacao(), c.getAnguloCameraGraus());
     }
 
     private CameraApiKeyResponse toApiKeyResponse(Camera c) {
