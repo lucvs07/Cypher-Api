@@ -319,7 +319,9 @@ public class CatalogService {
     private CameraAdminResponse toAdminResponse(Camera c) {
         return new CameraAdminResponse(TenantContext.codigo(c.getId()), c.getNome(),
                 TenantContext.codigo(c.getEstacaoId()), c.getStreamUrl(), c.getFonte(), c.isAtiva(),
-                c.getRotacao(), c.getAnguloCameraGraus());
+                c.getRotacao(), c.getAnguloCameraGraus(),
+                c.getFallenAspectRatio(), c.getFallenVerticalExtent(),
+                c.getTrunkRotationMax(), c.getFallRequireCorroboration());
     }
 
     private CameraApiKeyResponse toApiKeyResponse(Camera c) {

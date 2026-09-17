@@ -145,6 +145,41 @@ class CatalogWriteApiTest {
     }
 
     @Test
+    void cadastraCameraComOverridesDeQuedaEDevolveNaAdmin() throws Exception {
+        // Achado SPI 2026-09-16: os 4 campos de tuning de queda existiam na
+        // entidade e no endpoint de config do pipeline, mas nao apareciam na
+        // resposta de admin (create/update/get) — o gestor nao tinha como
+        // ver nem confirmar o que configurou pela tela.
+        mvc.perform(post("/api/v1/stations").session(gestor)
+                .contentType(MediaType.APPLICATION_JSON).content(ESTACAO));
+
+        mvc.perform(post("/api/v1/cameras").session(gestor)
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {
+                                  "id": "CAM-77",
+                                  "nome": "Frontal",
+                                  "estacaoId": "EST-77",
+                                  "streamUrl": "http://127.0.0.1:8177/stream",
+                                  "fonte": "rtsp://${CAM77_USER}:${CAM77_PASS}@10.0.0.7/stream",
+                                  "fallenAspectRatio": 2.2,
+                                  "fallenVerticalExtent": 0.15,
+                                  "trunkRotationMax": 0.6,
+                                  "fallRequireCorroboration": true
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.fallenAspectRatio").value(2.2))
+                .andExpect(jsonPath("$.fallenVerticalExtent").value(0.15))
+                .andExpect(jsonPath("$.trunkRotationMax").value(0.6))
+                .andExpect(jsonPath("$.fallRequireCorroboration").value(true));
+
+        mvc.perform(get("/api/v1/cameras/CAM-77").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fallenAspectRatio").value(2.2))
+                .andExpect(jsonPath("$.fallRequireCorroboration").value(true));
+    }
+
+    @Test
     void cameraDeEstacaoInexistenteDevolve422() throws Exception {
         mvc.perform(post("/api/v1/cameras").session(gestor)
                         .contentType(MediaType.APPLICATION_JSON).content(CAMERA))
