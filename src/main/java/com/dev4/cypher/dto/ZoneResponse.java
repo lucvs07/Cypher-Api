@@ -12,6 +12,7 @@ public record ZoneResponse(
         List<PontoRequest> polygon,
         int severity,
         List<String> requiredPpe,
+        boolean delimitaAvaliacao,
         boolean ativa
 ) {
 }

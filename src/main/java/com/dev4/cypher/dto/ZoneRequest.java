@@ -15,6 +15,7 @@ public record ZoneRequest(
         @NotNull ZoneType zoneType,
         @NotNull @Size(min = 3, message = "poligono precisa de ao menos 3 vertices") List<@Valid @NotNull PontoRequest> polygon,
         @NotNull @Min(1) @Max(4) Integer severity,
-        List<String> requiredPpe
+        List<String> requiredPpe,
+        Boolean delimitaAvaliacao
 ) {
 }

@@ -47,6 +47,7 @@ public class ZonaService {
             Zona nova = new Zona(null, camera.getId(), req.nome(), req.zoneType(),
                     toPontos(req.polygon()), req.severity(),
                     new java.util.ArrayList<>(req.requiredPpe() == null ? List.of() : req.requiredPpe()),
+                    Boolean.TRUE.equals(req.delimitaAvaliacao()),
                     true, TenantContext.currentEmpresaId());
             return toResponse(zonas.saveAndFlush(nova));
         });
@@ -60,6 +61,7 @@ public class ZonaService {
             zona.setPolygon(toPontos(req.polygon()));
             zona.setSeverity(req.severity());
             zona.setRequiredPpe(new java.util.ArrayList<>(req.requiredPpe() == null ? List.of() : req.requiredPpe()));
+            zona.setDelimitaAvaliacao(Boolean.TRUE.equals(req.delimitaAvaliacao()));
             return toResponse(zonas.saveAndFlush(zona));
         });
     }
@@ -92,6 +94,6 @@ public class ZonaService {
         List<PontoRequest> polygon = z.getPolygon().stream()
                 .map(p -> new PontoRequest(p.getX(), p.getY())).toList();
         return new ZoneResponse(z.getId(), TenantContext.codigo(z.getCameraId()), z.getNome(), z.getZoneType(),
-                polygon, z.getSeverity(), z.getRequiredPpe(), z.isAtiva());
+                polygon, z.getSeverity(), z.getRequiredPpe(), z.isDelimitaAvaliacao(), z.isAtiva());
     }
 }

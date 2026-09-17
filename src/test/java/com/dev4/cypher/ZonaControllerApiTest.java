@@ -56,6 +56,48 @@ class ZonaControllerApiTest {
     }
 
     @Test
+    void delimitaAvaliacaoDefaultFalsoEPersisteQuandoMarcado() throws Exception {
+        // Achado SPI 2026-09-16: ate entao zona so controlava severidade de
+        // alerta, nunca o que era avaliado (EPI/pose sempre rodam pra todo
+        // mundo). Este campo declara a zona como area de trabalho — default
+        // falso preserva o comportamento anterior sem o cadastro precisar
+        // saber que o campo existe.
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        criarCamera(session, "CAM-ZR9", "EST-01");
+
+        mvc.perform(post("/api/v1/cameras/CAM-ZR9/zones").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"nome\": \"Area da prensa\", \"zoneType\": \"RESTRICTED\", "
+                                + "\"polygon\": %s, \"severity\": 4, \"requiredPpe\": []}")
+                                .formatted(POLIGONO_VALIDO)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.delimitaAvaliacao").value(false));
+
+        String corpo = mvc.perform(post("/api/v1/cameras/CAM-ZR9/zones").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"nome\": \"Bancada de montagem\", \"zoneType\": \"ATTENTION\", "
+                                + "\"polygon\": %s, \"severity\": 1, \"requiredPpe\": [], "
+                                + "\"delimitaAvaliacao\": true}")
+                                .formatted(POLIGONO_VALIDO)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.delimitaAvaliacao").value(true))
+                .andReturn().getResponse().getContentAsString();
+        Number id = JsonPath.read(corpo, "$.id");
+
+        mvc.perform(get("/api/v1/cameras/CAM-ZR9/zones/config").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + id + ")].delimitaAvaliacao").value(true));
+
+        mvc.perform(put("/api/v1/cameras/CAM-ZR9/zones/" + id).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"nome\": \"Bancada de montagem\", \"zoneType\": \"ATTENTION\", "
+                                + "\"polygon\": %s, \"severity\": 1, \"requiredPpe\": []}")
+                                .formatted(POLIGONO_VALIDO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.delimitaAvaliacao").value(false));
+    }
+
+    @Test
     void poligonoPreservaValorEOrdemDosVerticesAposPostEGet() throws Exception {
         // @OrderColumn em Zona.polygon existe justamente para que recarregar
         // do banco nunca embaralhe a ordem dos vértices — este teste fixa
