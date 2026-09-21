@@ -16,6 +16,12 @@ public record CameraConfigResponse(
         String estacaoId,
         String fonte,
         int streamPort,
-        boolean ativa
+        boolean ativa,
+        int rotacao,
+        int anguloCameraGraus,
+        Double fallenAspectRatio,
+        Double fallenVerticalExtent,
+        Double trunkRotationMax,
+        Boolean fallRequireCorroboration
 ) {
 }

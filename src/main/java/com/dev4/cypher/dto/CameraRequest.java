@@ -1,6 +1,8 @@
 package com.dev4.cypher.dto;
 
 import com.dev4.cypher.catalog.CatalogCodes;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -22,6 +24,12 @@ public record CameraRequest(
         @NotBlank String estacaoId,
         @NotBlank @Size(max = 500) String streamUrl,
         @Size(max = 500) String fonte,
-        Boolean ativa
+        Boolean ativa,
+        Integer rotacao,
+        @Min(-45) @Max(45) Integer anguloCameraGraus,
+        Double fallenAspectRatio,
+        Double fallenVerticalExtent,
+        Double trunkRotationMax,
+        Boolean fallRequireCorroboration
 ) {
 }

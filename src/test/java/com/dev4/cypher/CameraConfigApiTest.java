@@ -68,6 +68,8 @@ class CameraConfigApiTest {
                 .andExpect(jsonPath("$.estacaoId").value("EST-55"))
                 .andExpect(jsonPath("$.streamPort").value(8155))
                 .andExpect(jsonPath("$.ativa").value(true))
+                .andExpect(jsonPath("$.rotacao").value(0))
+                .andExpect(jsonPath("$.anguloCameraGraus").value(0))
                 .andExpect(jsonPath("$.fonte").value(
                         "rtsp://${CAM55_USER}:${CAM55_PASS}@10.0.0.9/stream"));
     }

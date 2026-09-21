@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +52,18 @@ public class Zona {
     @CollectionTable(name = "zona_required_ppe", joinColumns = @JoinColumn(name = "zona_id"))
     @Column(name = "ppe")
     private List<String> requiredPpe = new ArrayList<>();
+
+    /**
+     * Quando verdadeiro, esta zona é a área de trabalho: EPI e pose estimation
+     * só são avaliados para quem está dentro dela (achado SPI 2026-09-16 —
+     * até então zona só controlava severidade de alerta, nunca o que era
+     * avaliado). Default falso preserva o comportamento anterior — zona
+     * continua sendo só "zona de perigo" a menos que o cadastro marque isto
+     * explicitamente.
+     */
+    @ColumnDefault("false")
+    @Column(nullable = false)
+    private boolean delimitaAvaliacao;
 
     @Column(nullable = false)
     private boolean ativa;
