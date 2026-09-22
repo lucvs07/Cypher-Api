@@ -55,27 +55,33 @@ class McpSecurityLockdownApiTest {
      * gerada ("{id}.{secretPlano}") no header X-Cypher-Mcp-Key. Com isso o
      * McpKeyAuthenticationFilter autentica com sucesso como McpAuthentication
      * (que concede só ROLE_MCP, não ROLE_GESTOR) e repassa a requisição para
-     * a camada de autorização — só aí a regra desta task entra em jogo:
+     * a camada de autorização — só aí a regra desta task entra em jogo.
      *
-     * <ul>
-     *   <li>COM a regra: McpAuthentication tem ROLE_MCP -> autorizado ->
-     *       chega no dispatcher -> sem handler em /mcp (MCD, que monta o
-     *       endpoint de verdade, ainda não foi implementada) -> 404. Isso
-     *       deve virar 200/outro código de sucesso quando MCD existir.</li>
-     *   <li>SEM a regra: cai no catch-all anyRequest().hasRole("GESTOR") ->
-     *       McpAuthentication não tem ROLE_GESTOR -> AccessDeniedException
-     *       -> 403.</li>
-     * </ul>
+     * <p>Renomeado/atualizado na revisão final de branch (achado IMPORTANT):
+     * a config {@code spring.ai.mcp.server} não existia em
+     * {@code src/test/resources/application.yaml}, então nenhum teste
+     * exercitava a rota real — MCD, que monta o handler de verdade, já
+     * tinha sido implementada, mas o teste continuava escrito para a era
+     * "sem handler" (esperava 404). Com a config adicionada, o handler real
+     * é {@code WebMvcStreamableServerTransportProvider}, e uma requisição
+     * SEM os headers exigidos pelo transporte Streamable HTTP (Accept
+     * precisa aceitar tanto {@code text/event-stream} quanto
+     * {@code application/json}) é rejeitada com 400 — verificado
+     * manualmente lendo o corpo da resposta real
+     * ({@code {"jsonRpcError":{"code":-32601,"message":"Invalid Accept
+     * headers. Expected TEXT_EVENT_STREAM and APPLICATION_JSON"}...}}),
+     * não um 404 de "rota inexistente". Isso já basta para discriminar a
+     * regra desta task (autorizado -> chega no handler -> 400 de protocolo;
+     * sem a regra, cairia no catch-all `anyRequest().hasRole("GESTOR")` ->
+     * McpAuthentication sem ROLE_GESTOR -> 403).
      *
-     * 403 vs não-403 é o sinal que de fato discrimina a regra (diferente dos
-     * dois testes acima, que dão 401 em ambos os cenários). Verificado
-     * manualmente: comentando a linha
-     * `.requestMatchers("/mcp/**").hasRole("MCP")` em SecurityConfig, este
-     * teste passa a observar 403; com a linha presente, observa 404 — ver
-     * task-4-report.md para o registro dessa verificação.
+     * <p>Um segundo teste abaixo ({@link
+     * #gestorComChaveMcpValidaEHandshakeValidoIniciaSessaoMcp}) vai além:
+     * envia os headers e o corpo JSON-RPC corretos (`initialize`) e prova
+     * que o handshake MCP completo funciona de ponta a ponta (200).
      */
     @Test
-    void gestorComChaveMcpValidaAutorizaERecaiEmNotFoundPorFaltaDeHandler() throws Exception {
+    void gestorComChaveMcpValidaMasSemHeadersDeProtocoloRecebeBadRequestDoHandlerReal() throws Exception {
         MockHttpSession gestor = loginGestorBootstrap(mvc);
 
         MvcResult criacao = mvc.perform(post("/api/v1/mcp-credentials").session(gestor)
@@ -87,6 +93,37 @@ class McpSecurityLockdownApiTest {
                 criacao.getResponse().getContentAsString(), "$.apiKey");
 
         mvc.perform(post("/mcp").header("X-Cypher-Mcp-Key", apiKey))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * Handshake MCP real e completo: chave válida + headers exigidos pelo
+     * transporte Streamable HTTP ({@code Accept: application/json,
+     * text/event-stream}) + corpo JSON-RPC {@code initialize} válido — prova
+     * que o endpoint /mcp montado por MCD de fato responde ao protocolo, não
+     * só que a rota existe.
+     */
+    @Test
+    void gestorComChaveMcpValidaEHandshakeValidoIniciaSessaoMcp() throws Exception {
+        MockHttpSession gestor = loginGestorBootstrap(mvc);
+
+        MvcResult criacao = mvc.perform(post("/api/v1/mcp-credentials").session(gestor)
+                        .contentType("application/json")
+                        .content("{\"nome\":\"Teste Handshake\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String apiKey = com.jayway.jsonpath.JsonPath.read(
+                criacao.getResponse().getContentAsString(), "$.apiKey");
+
+        String initialize = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":"
+                + "{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},"
+                + "\"clientInfo\":{\"name\":\"teste-lockdown\",\"version\":\"1.0\"}}}";
+
+        mvc.perform(post("/mcp")
+                        .header("X-Cypher-Mcp-Key", apiKey)
+                        .header("Accept", "application/json, text/event-stream")
+                        .contentType("application/json")
+                        .content(initialize))
+                .andExpect(status().isOk());
     }
 }
