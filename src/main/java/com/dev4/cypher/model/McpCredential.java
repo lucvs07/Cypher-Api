@@ -10,7 +10,8 @@ import java.time.OffsetDateTime;
 
 /** Credencial de acesso ao servidor MCP — um agente de IA externo, escopado por empresa. */
 @Entity
-@Table(name = "mcp_credentials")
+@Table(name = "mcp_credentials",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"empresa_id", "nome"}))
 @Getter
 @Setter
 @NoArgsConstructor
