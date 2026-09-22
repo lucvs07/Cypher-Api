@@ -12,6 +12,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 /** Tools MCP de leitura/análise de incidentes — delega inteiramente para IncidentService/LlmAnalysisService. */
@@ -51,6 +52,12 @@ public class IncidentMcpTools {
             description = "Le a ultima analise de risco (via LLM) ja calculada para um incidente, sem acionar o LLM. Rapido.")
     public Optional<RiskAnalysisResponse> getIncidentAnalysis(
             @McpToolParam(description = "Id do incidente", required = true) Long id) {
+        // LlmAnalysisService nao e escopado por tenant (achado de seguranca da
+        // revisao final de branch) — a mesma guarda do IncidentController:
+        // so prossegue se o incidente existir NO TENANT ATUAL.
+        if (incidentes.findById(id).isEmpty()) {
+            return Optional.empty();
+        }
         return llm.ultimaAnalise(id);
     }
 
@@ -60,6 +67,10 @@ public class IncidentMcpTools {
                     + "Use get_incident_analysis se uma analise ja calculada for suficiente.")
     public RiskAnalysisResponse analyzeIncident(
             @McpToolParam(description = "Id do incidente", required = true) Long id) {
+        // Mesma guarda: LlmAnalysisService.analisar nao e escopado por tenant.
+        if (incidentes.findById(id).isEmpty()) {
+            throw new NoSuchElementException("Incidente nao encontrado: " + id);
+        }
         return llm.analisar(id);
     }
 }
