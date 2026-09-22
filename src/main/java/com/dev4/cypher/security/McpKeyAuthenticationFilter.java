@@ -9,6 +9,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.lang.NonNull;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -17,13 +19,17 @@ import java.util.Optional;
 
 /**
  * Autentica requisicoes ao servidor MCP (/mcp/**) via header X-Cypher-Mcp-Key,
- * formato "{id}.{secretPlano}". Diferente de CypherKeyAuthenticationFilter
- * (best-effort fora da rota de ingestao), aqui a chave e sempre obrigatoria:
- * ausente/invalida/revogada -> 401 direto, sem seguir a chain.
+ * formato "{id}.{secretPlano}". Segue o mesmo padrao de CypherKeyAuthenticationFilter:
+ * sempre tenta autenticar primeiro, e so bloqueia com 401 condicionalmente por rota
+ * (aqui, apenas em /mcp/**, usando PathPatternRequestMatcher em vez de comparacao
+ * de string crua no path, para evitar bypass por encoding).
  */
 public class McpKeyAuthenticationFilter extends OncePerRequestFilter {
 
     public static final String HEADER = "X-Cypher-Mcp-Key";
+
+    private static final RequestMatcher ROTA_MCP =
+            PathPatternRequestMatcher.withDefaults().matcher("/mcp/**");
 
     private final McpCredentialRepository credenciais;
     private final PasswordEncoder encoder;
@@ -38,23 +44,18 @@ public class McpKeyAuthenticationFilter extends OncePerRequestFilter {
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain)
             throws ServletException, IOException {
-        if (!request.getRequestURI().startsWith("/mcp")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
         Optional<McpCredential> credencial = autenticar(request.getHeader(HEADER));
-        if (credencial.isEmpty()) {
+        credencial.ifPresent(c -> {
+            c.setUltimoUsoEm(OffsetDateTime.now());
+            credenciais.save(c);
+            SecurityContextHolder.getContext().setAuthentication(
+                    new McpAuthentication(c.getId(), c.getEmpresaId()));
+        });
+
+        if (ROTA_MCP.matches(request) && credencial.isEmpty()) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
-
-        McpCredential c = credencial.get();
-        c.setUltimoUsoEm(OffsetDateTime.now());
-        credenciais.save(c);
-
-        SecurityContextHolder.getContext().setAuthentication(
-                new McpAuthentication(c.getId(), c.getEmpresaId()));
         filterChain.doFilter(request, response);
     }
 

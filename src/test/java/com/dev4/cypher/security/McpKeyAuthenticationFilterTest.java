@@ -82,4 +82,35 @@ class McpKeyAuthenticationFilterTest {
 
         assertThat(res.getStatus()).isEqualTo(HttpServletResponse.SC_UNAUTHORIZED);
     }
+
+    @Test
+    void headerSemPontoNaoAutenticaMasNaoBloqueiaForaDeMcp() throws Exception {
+        McpCredentialRepository repo = Mockito.mock(McpCredentialRepository.class);
+        McpKeyAuthenticationFilter filtro = new McpKeyAuthenticationFilter(repo, encoder);
+
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/outra-rota");
+        req.addHeader(McpKeyAuthenticationFilter.HEADER, "sem-ponto-aqui");
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        FilterChain chain = Mockito.mock(FilterChain.class);
+
+        filtro.doFilterInternal(req, res, chain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        Mockito.verify(chain).doFilter(req, res);
+    }
+
+    @Test
+    void idNaoNumericoRetorna401EmRotaMcp() throws Exception {
+        McpCredentialRepository repo = Mockito.mock(McpCredentialRepository.class);
+        McpKeyAuthenticationFilter filtro = new McpKeyAuthenticationFilter(repo, encoder);
+
+        MockHttpServletRequest req = new MockHttpServletRequest("POST", "/mcp");
+        req.addHeader(McpKeyAuthenticationFilter.HEADER, "abc.segredo");
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        FilterChain chain = Mockito.mock(FilterChain.class);
+
+        filtro.doFilterInternal(req, res, chain);
+
+        assertThat(res.getStatus()).isEqualTo(HttpServletResponse.SC_UNAUTHORIZED);
+    }
 }
