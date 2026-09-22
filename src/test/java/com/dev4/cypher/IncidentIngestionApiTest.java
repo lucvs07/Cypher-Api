@@ -201,6 +201,28 @@ class IncidentIngestionApiTest {
     }
 
     @Test
+    void fechaIncidenteReabertoPorRenotificacao() throws Exception {
+        // cypher-capture fecha com RENOTIFIED quando a violacao persiste alem de
+        // renotify_after_seconds; antes do enum conhecer o valor, este PATCH era 400.
+        String corpo = QUEDA.replace("run-api", "run-renotify");
+        mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE)
+                .contentType(MediaType.APPLICATION_JSON).content(corpo));
+
+        mvc.perform(patch("/api/v1/incidents/CAM-INGESTAO-TESTE:run-renotify:track-7:20260810T143102482Z")
+                        .header(HEADER, CHAVE)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "endedAt": "2026-08-10T14:33:02.482-03:00",
+                                  "durationSeconds": 120.0,
+                                  "closedReason": "RENOTIFIED"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.closedReason").value("RENOTIFIED"));
+    }
+
+    @Test
     void fechamentoSemChaveDevolve401() throws Exception {
         mvc.perform(patch("/api/v1/incidents/nao-importa")
                         .contentType(MediaType.APPLICATION_JSON)
