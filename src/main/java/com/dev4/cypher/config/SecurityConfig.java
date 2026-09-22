@@ -2,6 +2,7 @@ package com.dev4.cypher.config;
 
 import com.dev4.cypher.repository.CameraRepository;
 import com.dev4.cypher.security.CypherKeyAuthenticationFilter;
+import com.dev4.cypher.security.McpKeyAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -58,7 +59,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            SecurityContextRepository securityContextRepository,
-                                           CameraRepository cameras) throws Exception {
+                                           CameraRepository cameras,
+                                           com.dev4.cypher.repository.McpCredentialRepository mcpCredentials,
+                                           PasswordEncoder passwordEncoder) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -66,6 +69,8 @@ public class SecurityConfig {
                 .securityContext(ctx -> ctx.securityContextRepository(securityContextRepository))
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .addFilterAfter(new CypherKeyAuthenticationFilter(cameras), SecurityContextHolderFilter.class)
+                .addFilterAfter(new McpKeyAuthenticationFilter(mcpCredentials, passwordEncoder),
+                        SecurityContextHolderFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
                         // response.sendError(401) no entry point abaixo dispara um
@@ -103,6 +108,7 @@ public class SecurityConfig {
                         .hasRole("GESTOR")
                         .requestMatchers(HttpMethod.GET, "/api/v1/incidents/*/analyze")
                         .hasRole("GESTOR")
+                        .requestMatchers("/mcp/**").hasRole("MCP")
                         .anyRequest().hasRole("GESTOR"))
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(
                         (request, response, authException) ->

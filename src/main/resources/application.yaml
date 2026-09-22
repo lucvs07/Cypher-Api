@@ -40,6 +40,14 @@ spring:
       pool:
         size: 2
 
+  ai:
+    mcp:
+      server:
+        name: cypher-mcp-server
+        version: 0.0.1
+        protocol: STREAMABLE
+        type: SYNC
+
 cypher:
   llm:
     provider: claude

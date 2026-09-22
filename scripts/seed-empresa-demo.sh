@@ -56,7 +56,7 @@ if h2_sql "SELECT COUNT(*) FROM usuarios WHERE username='${GESTOR_USER}';" | gre
   echo "    já existe, pulando criação."
 else
   echo "==> Gerando hash bcrypt e criando ${GESTOR_USER}..."
-  CP="$(find "${HOME}/.m2/repository/org/springframework/security/spring-security-crypto" -iname '*.jar' | sort -V | tail -1):$(find "${HOME}/.m2/repository/org/springframework/spring-core" -iname '*.jar' | sort -V | tail -1):$(find "${HOME}/.m2/repository/commons-logging/commons-logging" -iname '*.jar' | sort -V | tail -1)"
+  CP="$(find "${HOME}/.m2/repository/org/springframework/security/spring-security-crypto" -iname '*.jar' ! -iname '*-sources.jar' ! -iname '*-javadoc.jar' | sort -V | tail -1):$(find "${HOME}/.m2/repository/org/springframework/spring-core" -iname '*.jar' ! -iname '*-sources.jar' ! -iname '*-javadoc.jar' | sort -V | tail -1):$(find "${HOME}/.m2/repository/commons-logging/commons-logging" -iname '*.jar' ! -iname '*-sources.jar' ! -iname '*-javadoc.jar' | sort -V | tail -1)"
   HASH="$(echo "System.out.println(new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(\"${GESTOR_PASSWORD}\"));" | jshell --class-path "$CP" -s - 2>/dev/null | tail -1)"
   h2_sql "INSERT INTO usuarios (username, password_hash, papel, estacao_id, empresa_id) VALUES ('${GESTOR_USER}', '${HASH}', 'GESTOR', NULL, '${EMPRESA}');"
 fi

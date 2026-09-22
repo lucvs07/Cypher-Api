@@ -22,6 +22,14 @@ spring:
       datetime:
         write-dates-as-timestamps: false
 
+  ai:
+    mcp:
+      server:
+        name: cypher-mcp-server
+        version: 0.0.1
+        protocol: STREAMABLE
+        type: SYNC
+
 cypher:
   llm:
     provider: claude

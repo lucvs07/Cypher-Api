@@ -25,6 +25,9 @@ public final class TenantContext {
         if (auth instanceof PipelineAuthentication p) {
             return p.getEmpresaId();
         }
+        if (auth instanceof McpAuthentication m) {
+            return m.getEmpresaId();
+        }
         throw new IllegalStateException("Nenhum tenant autenticado no contexto de seguranca");
     }
 
