@@ -32,6 +32,14 @@ spring:
       datetime:
         write-dates-as-timestamps: false
 
+  # Padrao do Spring e 1 thread para todo @Scheduled: o reenvio de webhook
+  # (WebhookDispatcher.reenviarPendentes) e o keep-alive do SSE disputavam a
+  # mesma — um assinante lento atrasava o keep-alive de todos os paineis.
+  task:
+    scheduling:
+      pool:
+        size: 2
+
 cypher:
   llm:
     provider: claude

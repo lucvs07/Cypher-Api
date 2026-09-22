@@ -9,6 +9,8 @@ import com.dev4.cypher.repository.WebhookDeliveryRepository;
 import com.dev4.cypher.repository.WebhookSubscriptionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -18,6 +20,7 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -41,16 +44,26 @@ public class WebhookDispatcher {
     private final WebhookDeliveryRepository entregas;
     private final WebhookSigner signer;
     private final ObjectMapper objectMapper;
-    private final RestClient http = RestClient.create();
+    private final RestClient http;
 
     public WebhookDispatcher(WebhookSubscriptionRepository assinaturas,
                              WebhookDeliveryRepository entregas,
                              WebhookSigner signer,
-                             ObjectMapper objectMapper) {
+                             ObjectMapper objectMapper,
+                             @Value("${cypher.webhook.connect-timeout-ms:5000}") long connectTimeoutMs,
+                             @Value("${cypher.webhook.read-timeout-ms:10000}") long readTimeoutMs) {
         this.assinaturas = assinaturas;
         this.entregas = entregas;
         this.signer = signer;
         this.objectMapper = objectMapper;
+        // Sem timeout, RestClient.create() espera para sempre por um assinante
+        // que aceita a conexao e nunca responde — e reenviarPendentes roda na
+        // thread de @Scheduled, a mesma do keep-alive do SSE e de toda outra
+        // tarefa agendada: um endpoint de cliente travado parava todas elas.
+        SimpleClientHttpRequestFactory fabrica = new SimpleClientHttpRequestFactory();
+        fabrica.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
+        fabrica.setReadTimeout(Duration.ofMillis(readTimeoutMs));
+        this.http = RestClient.builder().requestFactory(fabrica).build();
     }
 
     @Async

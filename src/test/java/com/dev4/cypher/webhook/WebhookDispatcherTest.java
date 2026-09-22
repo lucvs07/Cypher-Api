@@ -28,7 +28,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+// read-timeout curto: o teste de assinante travado nao pode esperar os 10s do default.
+@SpringBootTest(properties = "cypher.webhook.read-timeout-ms=500")
 class WebhookDispatcherTest {
 
     @Autowired
@@ -52,6 +53,16 @@ class WebhookDispatcherTest {
         statusDeResposta = 200;
 
         servidor = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        servidor.createContext("/travado", troca -> {
+            // Aceita a conexao e nunca responde a tempo — o caso que prendia a
+            // thread de @Scheduled para sempre antes do timeout.
+            try {
+                Thread.sleep(5_000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            troca.close();
+        });
         servidor.createContext("/hook", troca -> {
             assinaturasRecebidas.add(troca.getRequestHeaders()
                     .getFirst("X-Cypher-Signature"));
@@ -98,6 +109,26 @@ class WebhookDispatcherTest {
         assertThat(entregas.findByIncidentKey("k-hook"))
                 .singleElement()
                 .satisfies(d -> assertThat(d.getStatus()).isEqualTo(DeliveryStatus.ENTREGUE));
+    }
+
+    @Test
+    void assinanteQueNaoRespondeViraPendenteNoTimeoutEmVezDeTravar() {
+        assinaturas.deleteAll();
+        assinaturas.save(new WebhookSubscription(null,
+                "http://127.0.0.1:" + servidor.getAddress().getPort() + "/travado",
+                "segredo", 3, true, "demo"));
+
+        dispatcher.onIncidentCreated(new IncidentCreatedEvent(incidente(4)));
+
+        // Sem timeout, a entrega so seria registrada depois dos 5s do
+        // assinante (e marcada ENTREGUE); com read-timeout de 500ms ela vira
+        // PENDENTE com o erro gravado bem antes disso.
+        Awaitility.await().atMost(Duration.ofSeconds(3))
+                .until(() -> !entregas.findAll().isEmpty());
+        WebhookDelivery entrega = entregas.findAll().get(0);
+        assertThat(entrega.getStatus()).isEqualTo(DeliveryStatus.PENDENTE);
+        assertThat(entrega.getUltimoErro()).isNotBlank();
+        assertThat(entrega.getProximaTentativa()).isNotNull();
     }
 
     @Test
