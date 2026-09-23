@@ -70,4 +70,13 @@ public class Zona {
 
     @Column(nullable = false, length = 30)
     private String empresaId;
+
+    /** Formatos legados lidos como {@link EpiTipo} — ver {@link EpiTipoLegado}. */
+    public List<EpiTipo> getRequiredPpe() {
+        return EpiTipoLegado.lerTodos(requiredPpe);
+    }
+
+    public void setRequiredPpe(List<EpiTipo> tipos) {
+        this.requiredPpe = EpiTipoLegado.gravar(tipos);
+    }
 }

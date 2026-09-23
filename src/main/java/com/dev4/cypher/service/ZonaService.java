@@ -4,6 +4,7 @@ import com.dev4.cypher.dto.PontoRequest;
 import com.dev4.cypher.dto.ZoneRequest;
 import com.dev4.cypher.dto.ZoneResponse;
 import com.dev4.cypher.model.Camera;
+import com.dev4.cypher.model.EpiTipoLegado;
 import com.dev4.cypher.model.PontoNormalizado;
 import com.dev4.cypher.model.Zona;
 import com.dev4.cypher.repository.CameraRepository;
@@ -46,7 +47,7 @@ public class ZonaService {
         return camera(codigo).map(camera -> {
             Zona nova = new Zona(null, camera.getId(), req.nome(), req.zoneType(),
                     toPontos(req.polygon()), req.severity(),
-                    new java.util.ArrayList<>(req.requiredPpe() == null ? List.of() : req.requiredPpe()),
+                    EpiTipoLegado.gravar(req.requiredPpe()),
                     Boolean.TRUE.equals(req.delimitaAvaliacao()),
                     true, TenantContext.currentEmpresaId());
             return toResponse(zonas.saveAndFlush(nova));
@@ -60,7 +61,7 @@ public class ZonaService {
             zona.setZoneType(req.zoneType());
             zona.setPolygon(toPontos(req.polygon()));
             zona.setSeverity(req.severity());
-            zona.setRequiredPpe(new java.util.ArrayList<>(req.requiredPpe() == null ? List.of() : req.requiredPpe()));
+            zona.setRequiredPpe(req.requiredPpe());
             zona.setDelimitaAvaliacao(Boolean.TRUE.equals(req.delimitaAvaliacao()));
             return toResponse(zonas.saveAndFlush(zona));
         });

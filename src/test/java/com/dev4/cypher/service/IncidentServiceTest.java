@@ -1,5 +1,7 @@
 package com.dev4.cypher.service;
 
+import com.dev4.cypher.model.EpiTipo;
+
 import com.dev4.cypher.dto.IncidentCloseRequest;
 import com.dev4.cypher.dto.IncidentRequest;
 import com.dev4.cypher.mapper.IncidentMapper;
@@ -50,7 +52,7 @@ class IncidentServiceTest {
         return new IncidentRequest(
                 key, "CAM-01", "run-a", 7, AlertaTipo.FALL_RISK, 4,
                 "fallen_sustained", "immediate_risk", 11, 4, null, "outside",
-                List.of("HELMET"), List.of(),
+                List.of(EpiTipo.HELMET), List.of(),
                 OffsetDateTime.of(2026, 8, 10, 14, 31, 2, 0, ZoneOffset.ofHours(-3)),
                 null);
     }

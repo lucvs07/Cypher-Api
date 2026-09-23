@@ -1,5 +1,7 @@
 package com.dev4.cypher.llm;
 
+import com.dev4.cypher.model.EpiTipo;
+
 import com.dev4.cypher.catalog.CatalogValidationException;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.model.AnalysisStatus;
@@ -109,7 +111,7 @@ class LlmAnalysisServiceTest {
         alerta.setReason("epi_missing");
         alerta.setPosturaCategoria("adequate");
         alerta.setEpiPresent(java.util.List.of());
-        alerta.setEpiMissing(java.util.List.of("luvas"));
+        alerta.setEpiMissing(java.util.List.of(EpiTipo.GLOVE));
         alerta.setRebaScore(3);
         alerta.setActionLevel(1);
         alerta.setZoneStatus("outside");

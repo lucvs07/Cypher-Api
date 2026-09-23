@@ -1,5 +1,7 @@
 package com.dev4.cypher.llm;
 
+import com.dev4.cypher.model.EpiTipo;
+
 import com.dev4.cypher.model.Alerta;
 import org.junit.jupiter.api.Test;
 
@@ -16,8 +18,8 @@ class PromptBuilderTest {
         Alerta alerta = new Alerta();
         alerta.setPosturaCategoria("critical_zone");
         alerta.setZona("prensa-01");
-        alerta.setEpiPresent(List.of("capacete"));
-        alerta.setEpiMissing(List.of("luvas"));
+        alerta.setEpiPresent(List.of(EpiTipo.HELMET));
+        alerta.setEpiMissing(List.of(EpiTipo.GLOVE));
         alerta.setRebaScore(9);
         alerta.setSeveridade(3);
         alerta.setDataHora(OffsetDateTime.now());
@@ -38,8 +40,8 @@ class PromptBuilderTest {
 
         assertThat(prompt).contains("critical_zone");
         assertThat(prompt).contains("prensa-01");
-        assertThat(prompt).contains("capacete");
-        assertThat(prompt).contains("luvas");
+        assertThat(prompt).contains("EPIs presentes: HELMET");
+        assertThat(prompt).contains("EPIs ausentes: GLOVE");
         assertThat(prompt).contains("JSON");
     }
 

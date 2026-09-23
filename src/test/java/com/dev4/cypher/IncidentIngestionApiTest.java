@@ -252,4 +252,18 @@ class IncidentIngestionApiTest {
                         .content("{\"durationSeconds\": 1.0}"))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void epiForaDoEnumNoCorpoDevolve400ComOsValoresAceitos() throws Exception {
+        // Formato que o capture mandava antes do contrato EpiTipo.
+        String legado = QUEDA
+                .replace("track-7:20260810T143102482Z", "track-8:20260810T143102482Z")
+                .replace("\"epiMissing\": []", "\"epiMissing\": [\"no_helmet\"]");
+
+        mvc.perform(post("/api/v1/incidents").header(HEADER, CHAVE)
+                        .contentType(MediaType.APPLICATION_JSON).content(legado))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").value(org.hamcrest.Matchers.containsString("no_helmet")))
+                .andExpect(jsonPath("$.erro").value(org.hamcrest.Matchers.containsString("HELMET, GOGGLES")));
+    }
 }

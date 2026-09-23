@@ -1,5 +1,7 @@
 package com.dev4.cypher;
 
+import com.dev4.cypher.model.EpiTipo;
+
 import com.dev4.cypher.repository.AlertaRepository;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
@@ -83,7 +85,7 @@ class IncidentAnalyzeApiTest {
         alerta.setDescricao("Fixture de teste de analise");
         alerta.setPosturaCategoria("adequate");
         alerta.setEpiPresent(java.util.List.of());
-        alerta.setEpiMissing(java.util.List.of("luvas"));
+        alerta.setEpiMissing(java.util.List.of(EpiTipo.GLOVE));
         alerta.setRebaScore(3);
         alerta.setActionLevel(1);
         alerta.setZoneStatus("outside");

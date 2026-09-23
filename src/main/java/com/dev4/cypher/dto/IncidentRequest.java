@@ -1,6 +1,7 @@
 package com.dev4.cypher.dto;
 
 import com.dev4.cypher.model.AlertaTipo;
+import com.dev4.cypher.model.EpiTipo;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -24,8 +25,8 @@ public record IncidentRequest(
         @NotNull Integer actionLevel,
         String zoneName,
         @NotBlank String zoneStatus,
-        List<String> epiPresent,
-        List<String> epiMissing,
+        List<@NotNull EpiTipo> epiPresent,
+        List<@NotNull EpiTipo> epiMissing,
         @NotNull OffsetDateTime detectedAt,
         String snapshotUrl
 ) {

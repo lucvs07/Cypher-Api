@@ -1,5 +1,7 @@
 package com.dev4.cypher;
 
+import jakarta.persistence.EntityManager;
+import org.springframework.jdbc.core.JdbcTemplate;
 import com.dev4.cypher.security.AuthTestSupport;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
@@ -33,7 +35,7 @@ class ZonaControllerApiTest {
         mvc.perform(post("/api/v1/cameras/CAM-ZR1/zones").session(session)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(("{\"nome\": \"Area da prensa\", \"zoneType\": \"RESTRICTED\", "
-                                + "\"polygon\": %s, \"severity\": 4, \"requiredPpe\": [\"capacete\"]}")
+                                + "\"polygon\": %s, \"severity\": 4, \"requiredPpe\": [\"HELMET\"]}")
                                 .formatted(POLIGONO_VALIDO)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.nome").value("Area da prensa"))
@@ -110,7 +112,7 @@ class ZonaControllerApiTest {
         mvc.perform(post("/api/v1/cameras/CAM-ZR5/zones").session(session)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(("{\"nome\": \"Area da prensa\", \"zoneType\": \"RESTRICTED\", "
-                                + "\"polygon\": %s, \"severity\": 4, \"requiredPpe\": [\"capacete\"]}")
+                                + "\"polygon\": %s, \"severity\": 4, \"requiredPpe\": [\"HELMET\"]}")
                                 .formatted(POLIGONO_VALIDO)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.polygon[0].x").value(0.2))
@@ -329,5 +331,58 @@ class ZonaControllerApiTest {
                                 + "\"empresaId\": \"%s\", \"empresaNome\": \"%s\"}").formatted(empresaId, empresaNome)))
                 .andExpect(status().isOk());
         return session;
+    }
+
+    @Autowired
+    private JdbcTemplate jdbc;
+
+    @Autowired
+    private EntityManager em;
+
+    @Test
+    void requiredPpeForaDoEnumDevolve400() throws Exception {
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        criarCamera(session, "CAM-ZPPE1", "EST-01");
+
+        for (String invalido : new String[]{"capacete", "auricular", "no_helmet"}) {
+            mvc.perform(post("/api/v1/cameras/CAM-ZPPE1/zones").session(session)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(("{\"nome\": \"Z\", \"zoneType\": \"RESTRICTED\", "
+                                    + "\"polygon\": %s, \"severity\": 4, \"requiredPpe\": [\"%s\"]}")
+                                    .formatted(POLIGONO_VALIDO, invalido)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.erro").value(org.hamcrest.Matchers.containsString(invalido)));
+        }
+    }
+
+    @Test
+    void zonaComRequiredPpeLegadoNoBancoDevolveCanonicoEAceitaEdicao() throws Exception {
+        MockHttpSession session = AuthTestSupport.loginGestorBootstrap(mvc);
+        criarCamera(session, "CAM-ZPPE2", "EST-01");
+        String criada = mvc.perform(post("/api/v1/cameras/CAM-ZPPE2/zones").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"nome\": \"Z\", \"zoneType\": \"RESTRICTED\", "
+                                + "\"polygon\": %s, \"severity\": 4, \"requiredPpe\": []}")
+                                .formatted(POLIGONO_VALIDO)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Number id = JsonPath.read(criada, "$.id");
+        // Zona gravada antes da validacao: chave PT e item nao detectavel.
+        jdbc.update("insert into zona_required_ppe (zona_id, ppe) values (?, 'capacete'), (?, 'cinto')",
+                id, id);
+        em.clear(); // teste e @Transactional: a zona criada ainda estava no contexto
+
+        mvc.perform(get("/api/v1/cameras/CAM-ZPPE2/zones").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].requiredPpe.length()").value(1))
+                .andExpect(jsonPath("$[0].requiredPpe[0]").value("HELMET"));
+
+        mvc.perform(put("/api/v1/cameras/CAM-ZPPE2/zones/" + id).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"nome\": \"Z\", \"zoneType\": \"RESTRICTED\", "
+                                + "\"polygon\": %s, \"severity\": 4, \"requiredPpe\": [\"HELMET\", \"GLOVE\"]}")
+                                .formatted(POLIGONO_VALIDO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requiredPpe[1]").value("GLOVE"));
     }
 }

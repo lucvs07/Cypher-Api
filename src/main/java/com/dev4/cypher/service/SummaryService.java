@@ -5,6 +5,7 @@ import com.dev4.cypher.dto.CameraResponse;
 import com.dev4.cypher.dto.StationResponse;
 import com.dev4.cypher.dto.SummaryResponse;
 import com.dev4.cypher.model.Alerta;
+import com.dev4.cypher.model.EpiTipo;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.repository.AlertaRepository;
 import com.dev4.cypher.security.TenantContext;
@@ -32,13 +33,6 @@ import java.util.Set;
 public class SummaryService {
 
     private static final Set<String> TURNOS_VALIDOS = Set.of("A", "B", "N");
-
-    private static final Map<String, String> EPI_PARA_VIOLACAO = Map.of(
-            "capacete", "no_helmet",
-            "oculos",   "no_goggle",
-            "luvas",    "no_gloves",
-            "botas",    "no_boots"
-    );
 
     private final AlertaRepository repository;
     private final CatalogService catalogo;
@@ -90,14 +84,7 @@ public class SummaryService {
                     "turno invalido: " + turno + " (esperado A, B ou N)");
         }
 
-        String violacaoAlvo = null;
-        if (epi != null) {
-            violacaoAlvo = EPI_PARA_VIOLACAO.get(epi);
-            if (violacaoAlvo == null) {
-                throw new CatalogValidationException(HttpStatus.BAD_REQUEST,
-                        "epi invalido: " + epi + " (esperado um de " + EPI_PARA_VIOLACAO.keySet() + ")");
-            }
-        }
+        EpiTipo violacaoAlvo = epi == null ? null : epiDoFiltro(epi);
 
         Map<String, String> estacaoPorCamera = new HashMap<>();
         Map<String, StationResponse> estacoes = new HashMap<>();
@@ -233,5 +220,15 @@ public class SummaryService {
 
         return new SummaryResponse(incidentesHoje, incidentesOntem, criticosHoje,
                 pendentes, heatmap, serie, distribuicaoTemporal, historicoAnual);
+    }
+
+    /** Filtro de EPI e o nome do {@link EpiTipo} (caixa livre) — o mesmo enum que o pipeline grava em epiMissing. */
+    private static EpiTipo epiDoFiltro(String epi) {
+        try {
+            return EpiTipo.valueOf(epi.strip().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new CatalogValidationException(HttpStatus.BAD_REQUEST,
+                    "epi invalido: " + epi + " (esperado um de " + java.util.Arrays.toString(EpiTipo.values()) + ")");
+        }
     }
 }

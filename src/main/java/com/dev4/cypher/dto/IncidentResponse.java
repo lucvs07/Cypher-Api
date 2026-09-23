@@ -4,6 +4,7 @@ import com.dev4.cypher.model.AlertaNivel;
 import com.dev4.cypher.model.AlertaStatus;
 import com.dev4.cypher.model.AlertaTipo;
 import com.dev4.cypher.model.ClosedReason;
+import com.dev4.cypher.model.EpiTipo;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -25,8 +26,8 @@ public record IncidentResponse(
         Integer actionLevel,
         String zoneName,
         String zoneStatus,
-        List<String> epiPresent,
-        List<String> epiMissing,
+        List<EpiTipo> epiPresent,
+        List<EpiTipo> epiMissing,
         String snapshotUrl,
         OffsetDateTime detectedAt,
         OffsetDateTime endedAt,

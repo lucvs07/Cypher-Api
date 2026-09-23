@@ -113,4 +113,22 @@ public class Alerta {
 
     @Column(nullable = false, length = 30)
     private String empresaId;
+
+    /** Formatos legados lidos como {@link EpiTipo} — ver {@link EpiTipoLegado}. */
+    public List<EpiTipo> getEpiPresent() {
+        return EpiTipoLegado.lerTodos(epiPresent);
+    }
+
+    public void setEpiPresent(List<EpiTipo> tipos) {
+        this.epiPresent = EpiTipoLegado.gravar(tipos);
+    }
+
+    /** Formatos legados lidos como {@link EpiTipo} — ver {@link EpiTipoLegado}. */
+    public List<EpiTipo> getEpiMissing() {
+        return EpiTipoLegado.lerTodos(epiMissing);
+    }
+
+    public void setEpiMissing(List<EpiTipo> tipos) {
+        this.epiMissing = EpiTipoLegado.gravar(tipos);
+    }
 }

@@ -1,5 +1,9 @@
 package com.dev4.cypher.repository;
 
+import jakarta.persistence.EntityManager;
+import org.springframework.jdbc.core.JdbcTemplate;
+import com.dev4.cypher.model.EpiTipo;
+
 import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.AlertaNivel;
 import com.dev4.cypher.model.AlertaStatus;
@@ -42,7 +46,7 @@ class AlertaRepositoryTest {
         a.setActionLevel(4);
         a.setZona(null);
         a.setZoneStatus("outside");
-        a.setEpiPresent(List.of("HELMET", "VEST"));
+        a.setEpiPresent(List.of(EpiTipo.HELMET, EpiTipo.VEST));
         a.setEpiMissing(List.of());
         a.setDataHora(OffsetDateTime.of(2026, 8, 10, 14, 31, 2, 0, ZoneOffset.ofHours(-3)));
         a.setStatus(AlertaStatus.PENDENTE);
@@ -56,7 +60,7 @@ class AlertaRepositoryTest {
 
         assertThat(salvo.getId()).isNotNull();
         assertThat(salvo.getZona()).isNull();
-        assertThat(salvo.getEpiPresent()).containsExactly("HELMET", "VEST");
+        assertThat(salvo.getEpiPresent()).containsExactly(EpiTipo.HELMET, EpiTipo.VEST);
     }
 
     @Test
@@ -100,5 +104,42 @@ class AlertaRepositoryTest {
         Alerta lido = repository.findById(a.getId()).orElseThrow();
         assertThat(lido.getDuracaoSegundos()).isEqualTo(6.6);
         assertThat(lido.getClosedReason()).isEqualTo(ClosedReason.STATE_EXIT);
+    }
+
+    @Autowired
+    private JdbcTemplate jdbc;
+
+    @Autowired
+    private EntityManager em;
+
+    @Test
+    void epiGravadoNoFormatoLegadoELidoComoEpiTipoESobreviveARegravacao() {
+        // Linhas de antes do contrato EpiTipo (2026-09-22): classe crua do
+        // detector, rotulo no_* e item que o modelo nao detecta.
+        Alerta salvo = repository.saveAndFlush(quedaForaDeZona());
+        jdbc.update("delete from alerta_epi_present where alerta_id = ?", salvo.getId());
+        jdbc.update("insert into alerta_epi_present (alerta_id, epi) values (?, 'Goggles'), (?, 'boots')",
+                salvo.getId(), salvo.getId());
+        jdbc.update("insert into alerta_epi_missing (alerta_id, epi) values (?, 'no_helmet'), (?, 'auricular')",
+                salvo.getId(), salvo.getId());
+        em.clear();
+
+        Alerta lido = repository.findById(salvo.getId()).orElseThrow();
+        assertThat(lido.getEpiPresent()).containsExactly(EpiTipo.GOGGLES, EpiTipo.BOOTS);
+        assertThat(lido.getEpiMissing()).containsExactly(EpiTipo.HELMET);
+
+        // Mudar outro campo nao pode quebrar por causa do item legado...
+        lido.setStatus(AlertaStatus.REVISADO);
+        repository.saveAndFlush(lido);
+        em.clear();
+        assertThat(repository.findById(salvo.getId()).orElseThrow().getEpiMissing())
+                .containsExactly(EpiTipo.HELMET);
+
+        // ...e regravar a lista normaliza o banco pro nome canonico.
+        Alerta deNovo = repository.findById(salvo.getId()).orElseThrow();
+        deNovo.setEpiMissing(deNovo.getEpiMissing());
+        repository.saveAndFlush(deNovo);
+        assertThat(jdbc.queryForList("select epi from alerta_epi_missing where alerta_id = ?",
+                String.class, salvo.getId())).containsExactly("HELMET");
     }
 }

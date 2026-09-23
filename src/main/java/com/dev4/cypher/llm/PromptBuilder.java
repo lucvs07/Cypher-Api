@@ -1,6 +1,7 @@
 package com.dev4.cypher.llm;
 
 import com.dev4.cypher.model.Alerta;
+import com.dev4.cypher.model.EpiTipo;
 import org.springframework.stereotype.Component;
 
 /** Monta o prompt enviado ao LLM multimodal (spec §2.6). */
@@ -38,10 +39,8 @@ public class PromptBuilder {
 
     private String montarV2(Alerta alerta) {
         String zona = alerta.getZona() != null ? alerta.getZona() : "nenhuma";
-        String episPresentes = alerta.getEpiPresent().isEmpty()
-                ? "nenhum" : String.join(", ", alerta.getEpiPresent());
-        String episAusentes = alerta.getEpiMissing().isEmpty()
-                ? "nenhum" : String.join(", ", alerta.getEpiMissing());
+        String episPresentes = nomes(alerta.getEpiPresent());
+        String episAusentes = nomes(alerta.getEpiMissing());
 
         return ("""
                 Voce e um assistente de seguranca industrial. Um sistema de visao computacional ja \
@@ -59,5 +58,10 @@ public class PromptBuilder {
                 """).formatted(alerta.getPosturaCategoria(), zona, episPresentes, episAusentes,
                         alerta.getRebaScore(), alerta.getSeveridade())
                 + INSTRUCOES_FORMATO;
+    }
+
+    private static String nomes(java.util.List<EpiTipo> epis) {
+        return epis.isEmpty() ? "nenhum"
+                : String.join(", ", epis.stream().map(EpiTipo::name).toList());
     }
 }

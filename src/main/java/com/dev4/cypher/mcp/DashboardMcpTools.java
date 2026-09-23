@@ -31,7 +31,7 @@ public class DashboardMcpTools {
             OffsetDateTime until,
             @McpToolParam(description = "Turno (A/B/N), ou null para todos", required = false) String turno,
             @McpToolParam(description = "Nome do setor, ou null para todos", required = false) String setor,
-            @McpToolParam(description = "EPI (capacete/oculos/luvas/botas), ou null para todos", required = false)
+            @McpToolParam(description = "EPI ausente (HELMET/GOGGLES/GLOVE/VEST/BOOTS/MASK), ou null para todos", required = false)
             String epi,
             @McpToolParam(description = "Incluir distribuição temporal detalhada", required = true)
             boolean detalhado) {

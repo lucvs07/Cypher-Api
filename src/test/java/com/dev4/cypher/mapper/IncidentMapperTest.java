@@ -1,5 +1,7 @@
 package com.dev4.cypher.mapper;
 
+import com.dev4.cypher.model.EpiTipo;
+
 import com.dev4.cypher.dto.IncidentRequest;
 import com.dev4.cypher.dto.IncidentResponse;
 import com.dev4.cypher.model.Alerta;
@@ -48,7 +50,7 @@ class IncidentMapperTest {
                 4,
                 null,
                 "outside",
-                List.of("HELMET", "VEST"),
+                List.of(EpiTipo.HELMET, EpiTipo.VEST),
                 List.of(),
                 OffsetDateTime.of(2026, 8, 10, 14, 31, 2, 0, ZoneOffset.ofHours(-3)),
                 null);
@@ -106,7 +108,7 @@ class IncidentMapperTest {
                 .contains("ergonom");
         assertThat(mapper.descricaoDe(AlertaTipo.ZONE_VIOLATION, "zone", "CAM-02"))
                 .contains("zona");
-        assertThat(mapper.descricaoDe(AlertaTipo.EPI_VIOLATION, "no_helmet", "CAM-02"))
+        assertThat(mapper.descricaoDe(AlertaTipo.EPI_VIOLATION, "HELMET", "CAM-02"))
                 .contains("EPI");
     }
 

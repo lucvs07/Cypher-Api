@@ -1,5 +1,8 @@
 package com.dev4.cypher;
 
+import org.springframework.jdbc.core.JdbcTemplate;
+import com.dev4.cypher.model.EpiTipo;
+
 import com.dev4.cypher.model.Alerta;
 import com.dev4.cypher.model.AlertaNivel;
 import com.dev4.cypher.model.AlertaStatus;
@@ -476,21 +479,36 @@ class SummaryApiTest {
                         + " && @.faixa2h==" + faixa2h + ")].incidentes").value(1));
     }
 
+    @Autowired
+    private JdbcTemplate jdbc;
+
+    @Test
+    void heatmapFiltraPorEpiTambemEmIncidenteGravadoNoFormatoLegado() throws Exception {
+        // Incidente de antes do contrato EpiTipo: epiMissing gravado como no_helmet.
+        Alerta legado = repository.saveAndFlush(incidente("epi-legado", "CAM-01", 2, OffsetDateTime.now()));
+        jdbc.update("insert into alerta_epi_missing (alerta_id, epi) values (?, 'no_helmet')", legado.getId());
+
+        mvc.perform(get("/api/v1/summary").param("epi", "helmet").session(gestor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-01')].incidentes").value(1));
+    }
+
     @Test
     void heatmapFiltraPorEpi() throws Exception {
         Alerta semCapacete = incidente("epi-1", "CAM-01", 2, OffsetDateTime.now());
-        semCapacete.setEpiMissing(List.of("no_helmet"));
+        semCapacete.setEpiMissing(List.of(EpiTipo.HELMET));
         repository.saveAndFlush(semCapacete);
 
-        mvc.perform(get("/api/v1/summary").param("epi", "capacete").session(gestor))
+        mvc.perform(get("/api/v1/summary").param("epi", "HELMET").session(gestor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-01')].incidentes").value(1))
                 .andExpect(jsonPath("$.heatmap[?(@.estacaoId=='EST-02')].incidentes").value(0));
     }
 
     @Test
-    void epiForaDoMapaDevolve400() throws Exception {
-        mvc.perform(get("/api/v1/summary").param("epi", "colete").session(gestor))
+    void epiForaDoEnumDevolve400() throws Exception {
+        // Chave em portugues do filtro antigo (capacete/oculos/...) tambem e invalida.
+        mvc.perform(get("/api/v1/summary").param("epi", "capacete").session(gestor))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.erro").exists());
     }
