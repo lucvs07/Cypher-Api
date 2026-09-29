@@ -154,6 +154,7 @@ Também centralizados no [`cypher-front`](https://github.com/Ronaldovels/cypher-
 
 
 - [Demonstração ao vivo — 60s](https://github.com/Ronaldovels/cypher-front/blob/main/docs/apresentacao/videos/pitch-final-demo-ao-vivo.mp4): backup do slide 12, com detecção → decisão → alerta nas duas telas → análise por IA.
+  
 https://github.com/user-attachments/assets/1eafada7-b96e-4b8e-9615-0f337889741e
 
 - [Tour pelas telas — 1min45](https://github.com/Ronaldovels/cypher-front/blob/main/docs/apresentacao/videos/pitch-final-tour-telas.mp4): login, dashboard, ao vivo, heatmap, incidentes, placar, EPIs, zonas de risco e MCP.
