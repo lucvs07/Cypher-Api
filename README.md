@@ -148,6 +148,13 @@ https://github.com/user-attachments/assets/da582c0c-9bc6-4ca3-9de6-844e875141b9
 
 Vídeo único, centralizado no repositório principal ([`cypher-front`](https://github.com/Ronaldovels/cypher-front#-vídeo-de-demonstração)), navegando pelas principais telas do sistema com os 3 projetos rodando localmente (dado real da empresa `demo`).
 
+### Vídeos do pitch final (Fase 4)
+
+Também centralizados no [`cypher-front`](https://github.com/Ronaldovels/cypher-front/tree/main/docs/apresentacao/videos), gravados com o sistema rodando — os alertas, o SSE, o placar e a análise por IA que aparecem vêm desta API, sobre o banco da empresa `demo`:
+
+- [Demonstração ao vivo — 60s](https://github.com/Ronaldovels/cypher-front/blob/main/docs/apresentacao/videos/pitch-final-demo-ao-vivo.mp4): backup do slide 12, com detecção → decisão → alerta nas duas telas → análise por IA.
+- [Tour pelas telas — 1min45](https://github.com/Ronaldovels/cypher-front/blob/main/docs/apresentacao/videos/pitch-final-tour-telas.mp4): login, dashboard, ao vivo, heatmap, incidentes, placar, EPIs, zonas de risco e MCP.
+
 ## Gestão ágil (Sprint 3)
 
 Este repositório é secundário na entrega — a documentação de gestão ágil (Trello, cerimônias, roteiro) é centralizada no repositório principal, [`cypher-front`](https://github.com/Ronaldovels/cypher-front).
