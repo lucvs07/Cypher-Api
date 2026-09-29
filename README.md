@@ -152,9 +152,22 @@ Vídeo único, centralizado no repositório principal ([`cypher-front`](https://
 
 Também centralizados no [`cypher-front`](https://github.com/Ronaldovels/cypher-front/tree/main/docs/apresentacao/videos), gravados com o sistema rodando — os alertas, o SSE, o placar e a análise por IA que aparecem vêm desta API, sobre o banco da empresa `demo`:
 
+
 - [Demonstração ao vivo — 60s](https://github.com/Ronaldovels/cypher-front/blob/main/docs/apresentacao/videos/pitch-final-demo-ao-vivo.mp4): backup do slide 12, com detecção → decisão → alerta nas duas telas → análise por IA.
+https://github.com/user-attachments/assets/1eafada7-b96e-4b8e-9615-0f337889741e
+
 - [Tour pelas telas — 1min45](https://github.com/Ronaldovels/cypher-front/blob/main/docs/apresentacao/videos/pitch-final-tour-telas.mp4): login, dashboard, ao vivo, heatmap, incidentes, placar, EPIs, zonas de risco e MCP.
+  
+
+https://github.com/user-attachments/assets/d2439482-547c-42e5-b491-f5240e6f2619
+
+
 - [Completo — 2min45](https://github.com/Ronaldovels/cypher-front/blob/main/docs/apresentacao/videos/pitch-final-completo.mp4): tour seguido da demonstração ao vivo.
+
+
+https://github.com/user-attachments/assets/ad56a7dd-3999-4b73-a855-ad9485288213
+
+
 
 ## Gestão ágil (Sprint 3)
 
