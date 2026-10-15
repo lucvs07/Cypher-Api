@@ -207,7 +207,7 @@ Este repositório é secundário na entrega — a documentação de gestão ági
 
 - Board Trello: https://trello.com/b/AqgHhHCP/dev4-cypher-challenge
 - Protótipo Figma: https://www.figma.com/design/kyeXTO2Uw0lkm8DPK2a22v/Interface?node-id=48-2
-- Design system: https://github.com/Ronaldovels/cypher-front/blob/dev/docs/design-system.md
+- Design system: https://github.com/Ronaldovels/cypher-front/blob/main/docs/design-system.md
 - Arquitetura (3 repositórios): https://github.com/Ronaldovels/cypher-front/blob/main/docs/arquitetura.md
-- Fluxo de telas: https://github.com/Ronaldovels/cypher-front/blob/dev/docs/fluxo-de-telas.md
+- Fluxo de telas: https://github.com/Ronaldovels/cypher-front/blob/main/docs/fluxo-de-telas.md
 - Repositório principal da entrega: https://github.com/Ronaldovels/cypher-front
