@@ -77,42 +77,70 @@ Notas de segurança embutidas no código que valem citar: uma chave `X-Cypher-Ke
 
 ## Como rodar localmente
 
-Pré-requisito: Java 21.
+**Pré-requisito:** Java 21 (`java -version`). O Maven vem junto, pelo `./mvnw`. Não precisa instalar banco: o H2 é embarcado.
 
 ```bash
+git clone https://github.com/lucvs07/Cypher-Api.git
+cd Cypher-Api
 ./mvnw spring-boot:run
 ```
 
-A API sobe em `http://localhost:8080`. H2 embarcado em modo arquivo (`jdbc:h2:file:./data/cypherdb;AUTO_SERVER=TRUE`, ver `src/main/resources/application.yaml`), dados persistem entre reinicializações; `data/` é gitignored (carrega tokens e api-keys em texto puro). Console H2 em `http://localhost:8080/h2-console` (usuário `sa`, senha vazia).
+A API sobe em `http://localhost:8080`. Confira com `curl http://localhost:8080/api/v1/health`, que responde `{"status":"UP"}`.
 
-O catálogo inicial (estações/câmeras de exemplo) é semeado por `CatalogProperties`/`CatalogSeeder` a partir de `cypher.catalog` em `application.yaml`. Para dados de demonstração completos (gestor, câmeras reais da meta indústria, equipes, operadores e histórico sintético de gamificação), rode:
+O H2 roda em modo arquivo (`jdbc:h2:file:./data/cypherdb;AUTO_SERVER=TRUE`, ver `src/main/resources/application.yaml`), e os dados persistem entre reinicializações. `data/` é gitignored porque guarda tokens e api-keys em texto puro. Console H2 em `http://localhost:8080/h2-console` (usuário `sa`, senha vazia).
+
+### Dados de demonstração (empresa `demo`)
+
+Com o backend rodando, em outro terminal:
 
 ```bash
-CYPHER_DEMO_GESTOR_PASSWORD=troque-isto ./scripts/seed-empresa-demo.sh
+CYPHER_DEMO_GESTOR_PASSWORD=demo12345 ./scripts/seed-empresa-demo.sh
 ```
 
-Requer o backend já rodando; usa `scripts/seed_gamificacao_demo.py` para o histórico retroativo. Veja os comentários no início do script para pré-requisitos e idempotência.
+Cria o gestor `gestor@demo`, as câmeras e estações da Metaindústria, as equipes, os operadores e um histórico sintético de 14 dias (incidentes, alertas e gamificação) para o dashboard, o heatmap e o placar não abrirem vazios. Os dados são simulados e servem só para demonstração. O script não é idempotente para o histórico: rode uma vez por banco. Para recomeçar, pare o backend e apague a pasta `data/`.
 
-Variáveis de ambiente relevantes para análise por LLM (`cypher.llm` em `application.yaml`): `CYPHER_CLAUDE_API_KEY`, `CYPHER_GEMINI_API_KEY` (provider default: `claude`).
+### Testes
+
+```bash
+./mvnw test
+```
+
+### Chaves de LLM (opcionais)
+
+A análise de risco por IA (botão "Analisar com IA" no detalhe do incidente) usa um LLM multimodal. Ela é a única parte que precisa de chave:
+
+```bash
+export CYPHER_CLAUDE_API_KEY=...   # provider padrão (claude)
+export CYPHER_GEMINI_API_KEY=...   # alternativa
+```
+
+**Sem chave, o sistema sobe e funciona normalmente:** login, dashboard, heatmap, incidentes, ao vivo, placar, relatórios, webhooks e MCP não dependem dela. Só a análise por IA fica indisponível. O padrão do provedor está em `cypher.llm` no `application.yaml`.
 
 ### Subindo os 3 projetos juntos (backend + front + captura)
 
-Para rodar o sistema completo (não só este backend) com dado real da empresa `demo`, use `scripts/subir-empresa-demo.sh` (presente também em `cypher-front` e `cypher-capture` — pode rodar a partir de qualquer um dos três):
+Para o sistema completo, use `scripts/subir-empresa-demo.sh` (o mesmo arquivo está em `cypher-front` e `cypher-capture`). Ele procura os outros repositórios nas pastas vizinhas, então clone os três lado a lado:
+
+```
+pasta/
+├── Cypher-Api/        (este repositório; pode se chamar cypher ou cypher-api)
+├── cypher-capture/
+└── cypher-front/
+```
 
 ```bash
-./scripts/subir-empresa-demo.sh start   # sobe backend, semeia a empresa demo, sobe o front e a webcam
+./scripts/subir-empresa-demo.sh start   # backend, seed, front e captura sobre o vídeo de demonstração
 ./scripts/subir-empresa-demo.sh status
 ./scripts/subir-empresa-demo.sh logs
 ./scripts/subir-empresa-demo.sh stop
 ```
 
-Por padrão assume os repositórios em `~/projects/cypher`, `~/projects/challenge/cypher-front` e `~/projects/challenge/cypher-capture` (configurável por variável de ambiente — ver cabeçalho do script). Detalhes: [`arquitetura.md`](https://github.com/Ronaldovels/cypher-front/blob/dev/docs/arquitetura.md) do `cypher-front`.
+Sem webcam e sem GPU ele usa o vídeo de demonstração do `cypher-capture` e roda em CPU. Para outro layout de pastas, defina `CYPHER_BACKEND_DIR`, `CYPHER_FRONT_DIR` e `CYPHER_CAPTURE_DIR` (cabeçalho do script). Passo a passo completo: [`arquitetura.md`](https://github.com/Ronaldovels/cypher-front/blob/main/docs/arquitetura.md) do `cypher-front`.
 
 ## Stack técnica
 
 Verificado em `pom.xml`:
 
-- Java 21, Spring Boot 4.0.6 (`spring-boot-starter-parent`)
+- Java 21, Spring Boot 4.1.1 (`spring-boot-starter-parent`)
 - `spring-boot-starter-webmvc`, `spring-boot-starter-data-jpa`, `spring-boot-starter-validation`, `spring-boot-starter-security`
 - `spring-boot-h2console` + `com.h2database:h2` (runtime) — H2 embarcado, modo arquivo
 - `org.apache.commons:commons-csv` 1.11.0 — relatórios CSV
@@ -180,6 +208,6 @@ Este repositório é secundário na entrega — a documentação de gestão ági
 - Board Trello: https://trello.com/b/AqgHhHCP/dev4-cypher-challenge
 - Protótipo Figma: https://www.figma.com/design/kyeXTO2Uw0lkm8DPK2a22v/Interface?node-id=48-2
 - Design system: https://github.com/Ronaldovels/cypher-front/blob/dev/docs/design-system.md
-- Arquitetura (3 repositórios): https://github.com/Ronaldovels/cypher-front/blob/dev/docs/arquitetura.md
+- Arquitetura (3 repositórios): https://github.com/Ronaldovels/cypher-front/blob/main/docs/arquitetura.md
 - Fluxo de telas: https://github.com/Ronaldovels/cypher-front/blob/dev/docs/fluxo-de-telas.md
 - Repositório principal da entrega: https://github.com/Ronaldovels/cypher-front
