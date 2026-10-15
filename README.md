@@ -172,6 +172,8 @@ Suíte de testes em `src/test/java`, cobrindo controllers, services e segurança
 
 ## 🎬 Vídeos do pitch final (Fase 4)
 
+**Vídeo de pitch final narrado pelo grupo:** [https://youtu.be/RNXN9POxUuM](https://youtu.be/RNXN9POxUuM)
+
 Gravados em 29/09/2026 com os 3 projetos rodando sobre a empresa `demo`, na ordem do roteiro do pitch. Os alertas, o SSE, o placar e a análise por IA que aparecem vêm desta API.
 
 ### Demonstração ao vivo · 60s
