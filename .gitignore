@@ -37,3 +37,9 @@ build/
 # contem tokens de estacao e api keys de camera, nunca deve ser commitado.
 data/
 data.bak-*/
+.worktrees/
+
+### Segredos locais (dev) ###
+# Chaves de API (ex.: CYPHER_GEMINI_API_KEY/CYPHER_CLAUDE_API_KEY) lidas por
+# subir-empresa-demo.sh antes de subir o backend — nunca deve ser commitado.
+.env
