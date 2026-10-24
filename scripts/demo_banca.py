@@ -11,16 +11,17 @@ que ja esta la e so faz o que a apresentacao precisa.
 2. Remove o historico sintetico antigo (run_id seed-run-1 e o heartbeat
    sintetico das CAM-01..04), que foi datado no dia em que foi gerado e hoje
    cai fora das duas semanas que o placar compara.
-3. Equipes do placar nas estacoes reais, para os alertas testados contarem:
-     EQ-DEMOA  Usinagem - Manha    MANHA  Fresa 1 + Fresa 2   alertas reais
-     EQ-DEMOB  Montagem - Manha    MANHA  Tenda + Sala 4      alertas reais
-     EQ-DEMOC  Usinagem - Noite    NOITE  Fresa 1 + Fresa 2   sem cobertura -> "dados insuficientes"
-     EQ-DEMOD  Producao - Tarde    TARDE  EST-03 + EST-04     sintetica, melhora semana a semana
-   A EQ-DEMOD existe so porque os alertas reais caem todos numa semana: sem
-   ela o placar nao teria nenhuma equipe melhorando. Os incidentes dela ficam
-   nas cameras genericas (CAM-03/04, videos de dataset), nunca nas reais. O
-   placar so conta camera ativa, entao as duas sao reativadas; com
-   --orchestrator o pipeline passa a rodar cenario3.mp4/cenario4.mp4 nelas.
+3. Equipes do placar nas DUAS estacoes remanescentes (reconfiguracao de
+   2026-10-24: catalogo da meta industria removido, so ficou EST-BANCA
+   — teste de banca com as 2 webcams USB — e EST-ARENA — camera RTSP real
+   da arena):
+     EQ-DEMOA  Usinagem - Fresas   MANHA  EST-BANCA  sintetica, cobertura normal
+     EQ-DEMOB  Usinagem - Tornos   MANHA  EST-ARENA  sintetica, cobertura normal
+     EQ-DEMOC  Usinagem - Noite    NOITE  EST-BANCA  sem cobertura -> "dados insuficientes"
+     EQ-DEMOD  Producao - Tarde    TARDE  EST-ARENA  sintetica, melhora semana a semana
+   Os nomes das equipes (EQ-DEMOA..D) e o papel de cada uma na demo (uma com
+   "dados insuficientes", uma melhorando semana a semana) foram preservados
+   do layout antigo — so a estacao/camera por tras mudou.
 4. Cobertura (monitoramento_diario) dos ultimos 14 dias, relativa a hoje,
    para as equipes com cobertura. Nas cameras reais so entra onde nao ha
    heartbeat real para o mesmo dia e turno.
@@ -47,18 +48,22 @@ MARCA_MICROS = 987654
 DIAS = 14
 SEGUNDOS_POR_TURNO = 21600  # 6 h das 8 h nominais: 75% de cobertura
 
+# Cameras genericas do seed antigo (CAM-01..04) — removidas do catalogo em
+# 2026-10-24, mas o id fica aqui so para limpar lixo de monitoramento_diario
+# que algum banco antigo ainda tenha (DELETE idempotente, sem efeito se nao
+# existir mais nada com esses ids).
 CAMERAS_GENERICAS = ["demo:CAM-01", "demo:CAM-02", "demo:CAM-03", "demo:CAM-04"]
 
 # (id, nome, turno, estacoes, meta_conformidade, meta_zero_sev4, meta_reconhecimento_s, cameras_com_cobertura)
 EQUIPES = [
-    ("demo:EQ-DEMOA", "Usinagem - Manha", "MANHA", ["demo:EST-FRESA1", "demo:EST-FRESA2"],
-     0.95, True, 180, ["demo:CAM-FRESA1", "demo:CAM-FRESA2"]),
-    ("demo:EQ-DEMOB", "Montagem - Manha", "MANHA", ["demo:EST-TENDA", "demo:EST-SALA4"],
-     0.97, True, 300, ["demo:CAM-TENDA", "demo:CAM-SALA4"]),
+    ("demo:EQ-DEMOA", "Usinagem - Fresas", "MANHA", ["demo:EST-BANCA"],
+     0.95, True, 180, ["demo:CAM-WEBCAM1", "demo:CAM-WEBCAM2"]),
+    ("demo:EQ-DEMOB", "Usinagem - Tornos", "MANHA", ["demo:EST-ARENA"],
+     0.97, True, 300, ["demo:CAM-TEATRO1"]),
     ("demo:EQ-DEMOC", "Usinagem - Noite (cobertura pendente)", "NOITE",
-     ["demo:EST-FRESA1", "demo:EST-FRESA2"], None, None, None, []),
-    ("demo:EQ-DEMOD", "Producao - Tarde", "TARDE", ["demo:EST-03", "demo:EST-04"],
-     0.9, False, None, ["demo:CAM-03", "demo:CAM-04"]),
+     ["demo:EST-BANCA"], None, None, None, []),
+    ("demo:EQ-DEMOD", "Producao - Tarde", "TARDE", ["demo:EST-ARENA"],
+     0.9, False, None, ["demo:CAM-TEATRO1"]),
 ]
 
 # Horarios dentro do turno tanto em -03 quanto em UTC (TurnoWindow usa a hora
@@ -83,18 +88,21 @@ def ts(d: dt.datetime) -> str:
 def fechar_abertos() -> list[str]:
     # Fim = ultimo instante visto na mesma execucao (run_id), quando o
     # pipeline ainda estava de pe; sem nada depois, fica o proprio inicio.
+    # So alertas de dias anteriores: os de hoje podem ser de um pipeline que
+    # esta rodando agora, com o incidente realmente aberto.
     return [f"""
 UPDATE alertas a SET
   encerrado_em = GREATEST(a.data_hora, COALESCE((
       SELECT MAX(COALESCE(b.encerrado_em, b.data_hora)) FROM alertas b
       WHERE b.empresa_id = a.empresa_id AND b.run_id = a.run_id), a.data_hora)),
   closed_reason = 'PIPELINE_STOPPED'
-WHERE a.empresa_id = {q(EMPRESA)} AND a.closed_reason IS NULL AND a.run_id <> {q(RUN_SINTETICO)};""",
+WHERE a.empresa_id = {q(EMPRESA)} AND a.closed_reason IS NULL AND a.run_id <> {q(RUN_SINTETICO)}
+  AND a.data_hora < CURRENT_DATE;""",
             f"""
 UPDATE alertas SET duracao_segundos =
   DATEDIFF('MILLISECOND', data_hora, encerrado_em) / 1000.0
 WHERE empresa_id = {q(EMPRESA)} AND closed_reason = 'PIPELINE_STOPPED'
-  AND duracao_segundos IS NULL AND encerrado_em IS NOT NULL;"""]
+  AND duracao_segundos IS NULL AND encerrado_em IS NOT NULL AND data_hora < CURRENT_DATE;"""]
 
 
 def limpar_sintetico() -> list[str]:
@@ -117,7 +125,7 @@ def limpar_sintetico() -> list[str]:
 
 def equipes() -> list[str]:
     out = [f"UPDATE cameras SET ativa = TRUE WHERE empresa_id = {q(EMPRESA)} "
-           f"AND id IN ({q('demo:CAM-03')}, {q('demo:CAM-04')});"]
+           f"AND id IN ({q('demo:CAM-WEBCAM1')}, {q('demo:CAM-WEBCAM2')}, {q('demo:CAM-TEATRO1')});"]
     for eid, nome, turno, estacoes, meta, zero4, reconhecimento, _ in EQUIPES:
         out.append(
             "MERGE INTO equipes (id, ativa, empresa_id, nome, turno, meta_conformidade, "
@@ -171,12 +179,12 @@ def alertas_sinteticos(hoje: dt.date) -> list[str]:
             f"{q(EMPRESA)});")
 
     # Semana anterior (8 a 13 dias atras): 4 episodios longos.
-    add("demo:CAM-03", 13, dt.time(16, 10), 2400, 10)
-    add("demo:CAM-04", 11, dt.time(17, 20), 1800, 9)
-    add("demo:CAM-03", 10, dt.time(16, 40), 2100, 11)
-    add("demo:CAM-04", 8, dt.time(18, 5), 1500, 9)
+    add("demo:CAM-TEATRO1", 13, dt.time(16, 10), 2400, 10)
+    add("demo:CAM-TEATRO1", 11, dt.time(17, 20), 1800, 9)
+    add("demo:CAM-TEATRO1", 10, dt.time(16, 40), 2100, 11)
+    add("demo:CAM-TEATRO1", 8, dt.time(18, 5), 1500, 9)
     # Semana atual: 1 episodio curto.
-    add("demo:CAM-03", 3, dt.time(17, 15), 420, 8)
+    add("demo:CAM-TEATRO1", 3, dt.time(17, 15), 420, 8)
     return out
 
 
