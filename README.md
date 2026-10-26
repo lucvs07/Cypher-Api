@@ -1,5 +1,9 @@
 # Cypher — backend de segurança industrial
 
+<!-- portfolio:pt -->
+Backend do Cypher, plataforma de segurança industrial que usa visão computacional para detectar uso incorreto de EPI, posturas de risco e quedas em tempo real. Spring Boot e Java 21, com autenticação multi-tenant, papéis, relatórios e análise por LLM.
+<!-- /portfolio:pt -->
+
 Cypher é uma plataforma de monitoramento de segurança industrial por visão computacional — detecta uso incorreto de EPI, postura de risco e quedas em tempo real, construída para a Metaindústria no Challenge SPI/FIAP. O sistema é composto por três repositórios: [`cypher-capture`](https://github.com/lucvs07/cypher-capture) (Python/YOLO, decide quando um incidente começa e termina, um processo por câmera), **`cypher`** (este repositório — Spring Boot 4/Java 21, recebe, persiste e expõe incidentes, autenticação, papéis, multi-tenant, relatórios e análise por LLM) e [`cypher-front`](https://github.com/Ronaldovels/cypher-front) (Angular, dashboard/heatmap/timeline/gamificação). Este README documenta apenas o backend.
 
 ## Domínio
